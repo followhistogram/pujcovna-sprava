@@ -5,8 +5,9 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Home, Camera, Calendar, Film, BarChart3, Settings, Menu, Sun, Moon } from "lucide-react"
+import { Home, Camera, Calendar, Film, BarChart3, Settings, Menu, Sun, Moon, LogOut } from "lucide-react"
 import { useTheme } from "next-themes"
+import { signOut } from "@/app/login/actions"
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home },
@@ -28,7 +29,6 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center px-4 md:px-6 lg:px-8">
-        {/* Logo */}
         <Link href="/" className="flex items-center space-x-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Film className="h-4 w-4" />
@@ -36,7 +36,6 @@ export default function Header() {
           <span className="hidden font-bold sm:inline-block">Půjčovna Polaroidů</span>
         </Link>
 
-        {/* Desktop Navigation */}
         <nav className="mx-6 hidden items-center space-x-4 lg:space-x-6 md:flex">
           {navigation.map((item) => {
             const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
@@ -57,14 +56,19 @@ export default function Header() {
         </nav>
 
         <div className="ml-auto flex items-center space-x-2">
-          {/* Theme Toggle */}
           <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-9 w-9">
             <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:rotate-90 dark:scale-0" />
             <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             <span className="sr-only">Přepnout téma</span>
           </Button>
 
-          {/* Mobile Navigation */}
+          <form action={signOut}>
+            <Button variant="ghost" size="icon" type="submit" className="h-9 w-9">
+              <LogOut className="h-4 w-4" />
+              <span className="sr-only">Odhlásit se</span>
+            </Button>
+          </form>
+
           <Sheet>
             <SheetTrigger asChild>
               <Button
