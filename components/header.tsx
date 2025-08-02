@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Home, Camera, Calendar, Film, BarChart3, Settings, Menu, Sun, Moon, LogOut } from "lucide-react"
 import { useTheme } from "next-themes"
-import { signOut } from "@/app/login/actions"
+import { logout } from "@/app/login/actions"
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home },
@@ -62,7 +62,7 @@ export default function Header() {
             <span className="sr-only">Přepnout téma</span>
           </Button>
 
-          <form action={signOut}>
+          <form action={logout}>
             <Button variant="ghost" size="icon" type="submit" className="h-9 w-9">
               <LogOut className="h-4 w-4" />
               <span className="sr-only">Odhlásit se</span>

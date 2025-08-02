@@ -7,8 +7,6 @@ import { ReservationForm } from "@/components/reservation-form"
 import { PaymentTransactionsCard } from "@/components/payment-transactions-card"
 import { FinancialSummaryCard } from "@/components/financial-summary-card"
 import { ReservationStatusCard } from "@/components/reservation-status-card"
-import { CustomerInfoCard } from "@/components/customer-info-card"
-import { ReservationDetailsCard } from "@/components/reservation-details-card"
 import { ReservationStatusBadge } from "@/components/reservation-status-badge"
 import type { Camera, Film, Reservation, ReservationItem, Accessory } from "@/lib/types"
 import { format } from "date-fns"
@@ -135,12 +133,6 @@ export default async function ReservationEditPage({ params }: { params: { id: st
       <div className="grid gap-6 lg:grid-cols-[1fr_400px] items-start">
         {/* Hlavní obsah - levý sloupec */}
         <div className="space-y-6">
-          {/* Základní informace o rezervaci */}
-          <div className="grid gap-6 md:grid-cols-2">
-            <ReservationDetailsCard reservation={reservation} />
-            <CustomerInfoCard reservation={reservation} />
-          </div>
-
           <ReservationForm
             reservation={reservation}
             availableCameras={availableCameras}

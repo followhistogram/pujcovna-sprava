@@ -46,38 +46,38 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 217.2 32.6% 17.5%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --background: 224 71% 4%;
+    --foreground: 213 31% 91%;
+    --card: 224 71% 4%;
+    --card-foreground: 213 31% 91%;
+    --popover: 224 71% 4%;
+    --popover-foreground: 213 31% 91%;
     --primary: 24 100% 50%;
-    --primary-foreground: 222.2 84% 4.9%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
+    --primary-foreground: 224 71% 4%;
+    --secondary: 215 28% 17%;
+    --secondary-foreground: 213 31% 91%;
+    --muted: 215 28% 17%;
+    --muted-foreground: 217.9 10.6% 64.9%;
+    --accent: 215 28% 17%;
+    --accent-foreground: 213 31% 91%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 213 31% 91%;
+    --border: 215 28% 17%;
+    --input: 215 28% 17%;
     --ring: 24 100% 50%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 224 71% 4%;
+    --sidebar-foreground: 213 31% 91%;
+    --sidebar-primary: 24 100% 50%;
+    --sidebar-primary-foreground: 224 71% 4%;
+    --sidebar-accent: 215 28% 17%;
+    --sidebar-accent-foreground: 213 31% 91%;
+    --sidebar-border: 215 28% 17%;
+    --sidebar-ring: 24 100% 50%;
     color-scheme: dark;
   }
 }
@@ -101,11 +101,11 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-muted-foreground/30 rounded-md;
+  @apply bg-muted-foreground/40 rounded-md;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted-foreground/50;
+  @apply bg-muted-foreground/60;
 }
 
 /* Smooth transitions for theme changes */
@@ -121,14 +121,16 @@
 .dark input[type="search"],
 .dark input[type="tel"],
 .dark input[type="url"],
+.dark input[type="date"],
 .dark textarea,
 .dark select {
-  @apply bg-background border-input;
+  @apply bg-background border-input text-foreground;
+  @apply focus:ring-ring focus:border-ring;
 }
 
 /* Better focus states in dark mode */
 .dark *:focus-visible {
-  @apply ring-ring;
+  @apply ring-ring ring-2 ring-offset-2 ring-offset-background;
 }
 
 /* Improve table readability in dark mode */
@@ -136,9 +138,16 @@
   @apply border-border;
 }
 
-.dark th,
+.dark th {
+  @apply border-border bg-muted/50 text-muted-foreground font-medium;
+}
+
 .dark td {
   @apply border-border;
+}
+
+.dark tr:hover {
+  @apply bg-muted/30;
 }
 
 /* Better modal/dialog backdrop in dark mode */
@@ -154,7 +163,19 @@
 
 /* Better toast contrast in dark mode */
 .dark .toaster .toast {
-  @apply bg-card border-border text-card-foreground;
+  @apply bg-card border-border text-card-foreground shadow-lg;
+}
+
+.dark .toaster .toast[data-type="success"] {
+  @apply bg-green-950 border-green-800 text-green-100;
+}
+
+.dark .toaster .toast[data-type="error"] {
+  @apply bg-red-950 border-red-800 text-red-100;
+}
+
+.dark .toaster .toast[data-type="warning"] {
+  @apply bg-yellow-950 border-yellow-800 text-yellow-100;
 }
 
 /* Improve chart colors for dark mode */
@@ -165,4 +186,114 @@
 
 .dark .recharts-text {
   @apply fill-muted-foreground;
+}
+
+/* Better button contrast in dark mode */
+.dark .btn-secondary {
+  @apply bg-secondary text-secondary-foreground hover:bg-secondary/80;
+}
+
+.dark .btn-outline {
+  @apply border-border text-foreground hover:bg-accent hover:text-accent-foreground;
+}
+
+/* Improve card appearance in dark mode */
+.dark .card {
+  @apply bg-card border-border shadow-lg;
+}
+
+/* Better badge contrast */
+.dark .badge {
+  @apply bg-secondary text-secondary-foreground;
+}
+
+.dark .badge-success {
+  @apply bg-green-900 text-green-100;
+}
+
+.dark .badge-warning {
+  @apply bg-yellow-900 text-yellow-100;
+}
+
+.dark .badge-error {
+  @apply bg-red-900 text-red-100;
+}
+
+/* Improve select dropdown in dark mode */
+.dark select option {
+  @apply bg-background text-foreground;
+}
+
+/* Better placeholder text in dark mode */
+.dark ::placeholder {
+  @apply text-muted-foreground;
+}
+
+/* Improve code blocks in dark mode */
+.dark pre,
+.dark code {
+  @apply bg-muted text-muted-foreground;
+}
+
+/* Better link colors in dark mode */
+.dark a {
+  @apply text-primary hover:text-primary/80;
+}
+
+/* Improve timeline appearance in dark mode */
+.dark .timeline-item {
+  @apply border-border bg-card;
+}
+
+.dark .timeline-item:hover {
+  @apply bg-accent;
+}
+
+/* Better status indicators */
+.dark .status-active {
+  @apply bg-green-900 text-green-100;
+}
+
+.dark .status-inactive {
+  @apply bg-gray-700 text-gray-300;
+}
+
+.dark .status-pending {
+  @apply bg-yellow-900 text-yellow-100;
+}
+
+/* Improve form validation messages */
+.dark .error-message {
+  @apply text-red-400;
+}
+
+.dark .success-message {
+  @apply text-green-400;
+}
+
+/* Better separator lines */
+.dark hr,
+.dark .separator {
+  @apply border-border;
+}
+
+/* Improve loading states */
+.dark .loading-skeleton {
+  @apply bg-muted animate-pulse;
+}
+
+/* Better hover states for interactive elements */
+.dark .hover-card:hover {
+  @apply bg-accent/50 border-accent;
+}
+
+/* Improve navigation active states */
+.dark .nav-active {
+  @apply bg-accent text-accent-foreground;
+}
+
+/* Better contrast for disabled elements */
+.dark .disabled,
+.dark :disabled {
+  @apply opacity-50 cursor-not-allowed;
 }
