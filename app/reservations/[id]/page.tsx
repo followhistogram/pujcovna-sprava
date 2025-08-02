@@ -8,6 +8,7 @@ import { PaymentTransactionsCard } from "@/components/payment-transactions-card"
 import { FinancialSummaryCard } from "@/components/financial-summary-card"
 import { ReservationStatusCard } from "@/components/reservation-status-card"
 import { ReservationStatusBadge } from "@/components/reservation-status-badge"
+import { EmailLogsCard } from "@/components/email-logs-card"
 import type { Camera, Film, Reservation, ReservationItem, Accessory } from "@/lib/types"
 import { format } from "date-fns"
 
@@ -106,6 +107,8 @@ export default async function ReservationEditPage({ params }: { params: { id: st
   const { data: films } = await supabase.from("films").select("id, name, price, shots_per_pack")
   const { data: accessories } = await supabase.from("accessories").select("id, name, price")
 
+  const { data: emailLogs } = await supabase.from("email_logs").select("*").eq("reservation_id", params.id)
+
   return (
     <main className="container mx-auto py-6 px-4">
       <div className="flex items-center justify-between gap-4 mb-6">
@@ -153,6 +156,7 @@ export default async function ReservationEditPage({ params }: { params: { id: st
                 totalPrice={reservation.total_price}
                 totalPaid={reservation.amount_paid || 0}
               />
+              <EmailLogsCard reservationId={reservation.id} logs={emailLogs || []} />
             </>
           )}
         </div>

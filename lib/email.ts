@@ -44,6 +44,24 @@ function parseTemplate(template: string, data: Record<string, any>): string {
   return parsedTemplate
 }
 
+async function logEmail(
+  supabase: ReturnType<typeof createClient>,
+  logData: {
+    reservation_id?: string
+    template_name: string
+    recipient: string
+    subject: string
+    status: "sent" | "failed"
+    error_message?: string
+    provider_message_id?: string
+  },
+) {
+  const { error } = await supabase.from("email_logs").insert(logData)
+  if (error) {
+    console.error("Failed to log email:", error)
+  }
+}
+
 export async function sendEmail({
   templateName,
   recipient,
@@ -100,13 +118,29 @@ export async function sendEmail({
     html: html,
   }
 
-  // 6. Send email
+  // 6. Send email and log the result
   try {
-    await transporter.sendMail(mailOptions)
-    console.log(`Email "${templateName}" sent to ${recipient}`)
+    const info = await transporter.sendMail(mailOptions)
+    console.log(`Email "${templateName}" sent to ${recipient}. Message ID: ${info.messageId}`)
+    await logEmail(supabase, {
+      reservation_id: data.id,
+      template_name: templateName,
+      recipient,
+      subject,
+      status: "sent",
+      provider_message_id: info.messageId,
+    })
     return { success: true, message: "E-mail byl úspěšně odeslán." }
   } catch (error: any) {
     console.error(`Email Error: Failed to send email to ${recipient}.`, error)
+    await logEmail(supabase, {
+      reservation_id: data.id,
+      template_name: templateName,
+      recipient,
+      subject,
+      status: "failed",
+      error_message: error.message,
+    })
     return { success: false, message: `Chyba při odesílání e-mailu: ${error.message}` }
   }
 }
