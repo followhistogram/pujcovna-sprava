@@ -6,6 +6,7 @@ import { z } from "zod"
 import type { ReservationItem, ReservationStatus } from "@/lib/types"
 import { fakturoidApiRequest } from "@/lib/fakturoid"
 import { zaslatApiRequest } from "@/lib/zaslat"
+import { sendEmail } from "@/lib/email"
 
 const reservationItemSchema = z.object({
   item_id: z.string().uuid(),
@@ -96,6 +97,8 @@ export async function saveReservation(prevState: any, formData: FormData) {
 
   try {
     let reservationId = id
+    let newReservationDataForEmail: any = null
+
     if (id) {
       const updateData = Object.fromEntries(Object.entries(reservationData).filter(([_, value]) => value !== undefined))
       const { error } = await supabase.from("reservations").update(updateData).eq("id", id)
@@ -108,6 +111,7 @@ export async function saveReservation(prevState: any, formData: FormData) {
         .single()
       if (error) throw error
       reservationId = newReservation.id
+      newReservationDataForEmail = newReservation // Store for email
     }
 
     if (reservationId) {
@@ -115,6 +119,23 @@ export async function saveReservation(prevState: any, formData: FormData) {
       const itemsToInsert = reservationItems.map((item) => ({ ...item, reservation_id: reservationId }))
       const { error: insertError } = await supabase.from("reservation_items").insert(itemsToInsert)
       if (insertError) throw insertError
+
+      // If a new reservation was created, send confirmation email
+      if (newReservationDataForEmail && newReservationDataForEmail.customer_email) {
+        // We need to combine reservation data with item data for the email
+        const emailData = {
+          ...newReservationDataForEmail,
+          items: reservationItems,
+        }
+
+        // Fire and forget - we don't want to block the UI response
+        // if the email fails to send. Errors are logged in sendEmail function.
+        sendEmail({
+          templateName: "reservation_confirmation",
+          recipient: newReservationDataForEmail.customer_email,
+          data: emailData,
+        })
+      }
     }
 
     revalidatePath("/reservations")

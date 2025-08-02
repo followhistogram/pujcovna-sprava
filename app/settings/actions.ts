@@ -59,3 +59,40 @@ export async function updateSmtpSettings(prevState: any, formData: FormData) {
   revalidatePath("/settings")
   return { message: "Nastavení SMTP úspěšně uloženo.", errors: {} }
 }
+
+// Schema for email template validation
+const EmailTemplateSchema = z.object({
+  name: z.string(),
+  subject: z.string().min(1, "Předmět je povinný."),
+  body: z.string().min(1, "Tělo e-mailu je povinné."),
+})
+
+export async function getEmailTemplate(name: string) {
+  const supabase = createClient()
+  const { data } = await supabase.from("email_templates").select("*").eq("name", name).limit(1).single()
+  return data
+}
+
+export async function updateEmailTemplate(prevState: any, formData: FormData) {
+  const supabase = createClient()
+
+  const validatedFields = EmailTemplateSchema.safeParse(Object.fromEntries(formData.entries()))
+
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: "Chyba validace. Zkontrolujte zadané údaje.",
+    }
+  }
+
+  const { name, ...rest } = validatedFields.data
+
+  const { error } = await supabase.from("email_templates").update(rest).eq("name", name)
+
+  if (error) {
+    return { message: `Chyba při ukládání šablony: ${error.message}` }
+  }
+
+  revalidatePath("/settings")
+  return { message: "Šablona e-mailu byla úspěšně uložena.", errors: {} }
+}
