@@ -9,6 +9,9 @@ import Image from "next/image"
 import { DuplicateCameraButton } from "@/components/duplicate-camera-button"
 import { DeleteCameraButton } from "@/components/delete-camera-button"
 
+// Označit stránku jako dynamickou
+export const dynamic = "force-dynamic"
+
 interface CameraType {
   id: string
   name: string

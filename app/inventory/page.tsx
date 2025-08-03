@@ -13,23 +13,37 @@ import { DeleteInventoryItemButton } from "@/components/delete-inventory-item-bu
 import { StockAdjustmentButton } from "@/components/stock-adjustment-button"
 import { InventoryHistoryTab } from "@/components/inventory-history-tab"
 
-export default async function InventoryPage() {
-  const supabase = createClient()
-  const { data: filmsData } = await supabase.from("films").select("*")
-  const { data: accessoriesData } = await supabase.from("accessories").select("*")
+// Označit stránku jako dynamickou
+export const dynamic = "force-dynamic"
 
-  const films = (filmsData as Film[]) || []
-  const accessories = (accessoriesData as Accessory[]) || []
+export default async function InventoryPage() {
+  const supabase = await createClient()
+
+  let films: Film[] = []
+  let accessories: Accessory[] = []
+  let recentLogs: any[] = []
+
+  try {
+    const { data: filmsData } = await supabase.from("films").select("*")
+    const { data: accessoriesData } = await supabase.from("accessories").select("*")
+
+    films = (filmsData as Film[]) || []
+    accessories = (accessoriesData as Accessory[]) || []
+
+    // Get recent stock changes for dashboard
+    const { data: recentLogsData } = await supabase
+      .from("inventory_logs")
+      .select("*")
+      .eq("change_type", "stock_change")
+      .order("created_at", { ascending: false })
+      .limit(5)
+
+    recentLogs = recentLogsData || []
+  } catch (error) {
+    console.error("Error fetching inventory data:", error)
+  }
 
   const lowStockFilms = films.filter((f) => f.stock < f.low_stock_threshold)
-
-  // Get recent stock changes for dashboard
-  const { data: recentLogs } = await supabase
-    .from("inventory_logs")
-    .select("*")
-    .eq("change_type", "stock_change")
-    .order("created_at", { ascending: false })
-    .limit(5)
 
   return (
     <div className="grid gap-4">
