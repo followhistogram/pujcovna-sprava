@@ -9,7 +9,10 @@ export async function login(formData: FormData) {
 
   const email = formData.get("email") as string
   const password = formData.get("password") as string
-  const remember = formData.get("remember") === "on"
+
+  if (!email || !password) {
+    redirect("/login?message=Email a heslo jsou povinné")
+  }
 
   const { error } = await supabase.auth.signInWithPassword({
     email,

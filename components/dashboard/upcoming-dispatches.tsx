@@ -1,70 +1,51 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { CalendarDays } from "lucide-react"
 import Link from "next/link"
-import { format, isToday, isTomorrow } from "date-fns"
+import { format } from "date-fns"
 import { cs } from "date-fns/locale"
-import { ArrowRight } from "lucide-react"
 
-type UpcomingDispatchesProps = {
-  reservations: {
+interface UpcomingDispatchesProps {
+  reservations: Array<{
     id: string
     short_id: string
     customer_name: string
     rental_start_date: string
-    items: { name: string }[]
-  }[]
+    items: Array<{ name: string }>
+  }>
 }
 
 export function UpcomingDispatches({ reservations }: UpcomingDispatchesProps) {
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    if (isToday(date)) return "Dnes"
-    if (isTomorrow(date)) return "Zítra"
-    return format(date, "d. MMMM", { locale: cs })
-  }
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Rezervace k expedici (7 dní)</CardTitle>
-        <CardDescription>Přehled výpůjček, které je potřeba připravit.</CardDescription>
+        <CardTitle className="flex items-center gap-2">
+          <CalendarDays className="h-5 w-5" />
+          Nadcházející expedice
+        </CardTitle>
+        <CardDescription>Rezervace k odeslání v příštích 7 dnech</CardDescription>
       </CardHeader>
       <CardContent>
-        {reservations.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Kdy</TableHead>
-                <TableHead>Zákazník</TableHead>
-                <TableHead>
-                  <span className="sr-only">Akce</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {reservations.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell className="font-medium">{formatDate(r.rental_start_date)}</TableCell>
-                  <TableCell>
-                    <div>{r.customer_name}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {r.items.map((item) => item.name).join(", ")}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button asChild variant="ghost" size="icon">
-                      <Link href={`/reservations/${r.id}`}>
-                        <ArrowRight className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        {reservations.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Žádné nadcházející expedice</p>
         ) : (
-          <p className="text-sm text-muted-foreground text-center py-8">Žádné rezervace k expedici.</p>
+          <div className="space-y-4">
+            {reservations.slice(0, 5).map((reservation) => (
+              <div key={reservation.id} className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Link href={`/reservations/${reservation.id}`} className="font-medium hover:underline">
+                    {reservation.customer_name}
+                  </Link>
+                  <p className="text-sm text-muted-foreground">{reservation.items.length} položek</p>
+                </div>
+                <div className="text-right">
+                  <Badge variant="outline">
+                    {format(new Date(reservation.rental_start_date), "d. M.", { locale: cs })}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </CardContent>
     </Card>
