@@ -1,51 +1,49 @@
 "use client"
 
 import { useState } from "react"
+import { useActionState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Edit2, Check, Copy, X, User, Mail, Phone, MapPin } from "lucide-react"
-import { toast } from "sonner"
+import { Edit2, Check, X, Copy } from "lucide-react"
 import { updateCustomerInfo } from "@/app/reservations/actions"
-import { useFormState } from "react-dom"
+import { toast } from "sonner"
+import type { Reservation } from "@/lib/types"
 
 interface CustomerInfoCardProps {
-  reservation: {
-    id: string
-    customer_name: string | null
-    customer_email: string | null
-    customer_phone: string | null
-    customer_address: any
+  reservation: Reservation
+}
+
+function formatAddress(address: any): string {
+  if (!address) return "Není uvedena"
+
+  if (typeof address === "string") {
+    return address
   }
+
+  if (typeof address === "object") {
+    const parts = []
+    if (address.street) parts.push(address.street)
+    if (address.city) parts.push(address.city)
+    if (address.zip) parts.push(address.zip)
+    return parts.length > 0 ? parts.join(", ") : "Není uvedena"
+  }
+
+  return "Není uvedena"
 }
 
 export function CustomerInfoCard({ reservation }: CustomerInfoCardProps) {
   const [isEditing, setIsEditing] = useState(false)
-  const [state, formAction] = useFormState(updateCustomerInfo, null)
+  const [state, formAction, isPending] = useActionState(updateCustomerInfo, null)
 
   const copyToClipboard = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text)
       toast.success(`${label} zkopírováno do schránky`)
     } catch (error) {
-      toast.error("Chyba při kopírování do schránky")
+      toast.error("Nepodařilo se zkopírovat do schránky")
     }
-  }
-
-  const formatAddress = (address: any) => {
-    if (!address) return ""
-    if (typeof address === "string") return address
-    if (typeof address === "object") {
-      const parts = []
-      if (address.street) parts.push(address.street)
-      if (address.zip || address.city) {
-        parts.push(`${address.zip || ""} ${address.city || ""}`.trim())
-      }
-      return parts.join(", ")
-    }
-    return ""
   }
 
   const handleSubmit = async (formData: FormData) => {
@@ -54,155 +52,157 @@ export function CustomerInfoCard({ reservation }: CustomerInfoCardProps) {
       setIsEditing(false)
       toast.success("Údaje zákazníka byly aktualizovány")
     } else {
-      toast.error(result?.error || "Chyba při aktualizaci údajů")
+      toast.error(result?.error || "Nepodařilo se aktualizovat údaje")
     }
   }
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <User className="h-4 w-4" />
-          Zákazník
-        </CardTitle>
-        <Button variant="ghost" size="sm" onClick={() => setIsEditing(!isEditing)} className="h-8 w-8 p-0">
+        <CardTitle className="text-lg font-semibold">Zákazník</CardTitle>
+        <Button variant="ghost" size="sm" onClick={() => setIsEditing(!isEditing)} disabled={isPending}>
           {isEditing ? <X className="h-4 w-4" /> : <Edit2 className="h-4 w-4" />}
         </Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
         {isEditing ? (
           <form action={handleSubmit} className="space-y-4">
             <input type="hidden" name="reservationId" value={reservation.id} />
 
             <div className="space-y-2">
-              <Label htmlFor="customerName">Jméno</Label>
-              <Input id="customerName" name="customerName" defaultValue={reservation.customer_name || ""} required />
+              <Label htmlFor="customer_name">Jméno</Label>
+              <Input id="customer_name" name="customer_name" defaultValue={reservation.customer_name} required />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="customerEmail">E-mail</Label>
+              <Label htmlFor="customer_email">E-mail</Label>
               <Input
-                id="customerEmail"
-                name="customerEmail"
+                id="customer_email"
+                name="customer_email"
                 type="email"
                 defaultValue={reservation.customer_email || ""}
-                required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="customerPhone">Telefon</Label>
-              <Input id="customerPhone" name="customerPhone" defaultValue={reservation.customer_phone || ""} required />
+              <Label htmlFor="customer_phone">Telefon</Label>
+              <Input id="customer_phone" name="customer_phone" defaultValue={reservation.customer_phone || ""} />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="customerAddress">Adresa</Label>
-              <Textarea
-                id="customerAddress"
-                name="customerAddress"
-                defaultValue={formatAddress(reservation.customer_address)}
-                required
-                rows={3}
+              <Label htmlFor="street">Ulice</Label>
+              <Input
+                id="street"
+                name="street"
+                defaultValue={
+                  typeof reservation.customer_address === "object" && reservation.customer_address?.street
+                    ? reservation.customer_address.street
+                    : ""
+                }
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="city">Město</Label>
+                <Input
+                  id="city"
+                  name="city"
+                  defaultValue={
+                    typeof reservation.customer_address === "object" && reservation.customer_address?.city
+                      ? reservation.customer_address.city
+                      : ""
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="zip">PSČ</Label>
+                <Input
+                  id="zip"
+                  name="zip"
+                  defaultValue={
+                    typeof reservation.customer_address === "object" && reservation.customer_address?.zip
+                      ? reservation.customer_address.zip
+                      : ""
+                  }
+                />
+              </div>
             </div>
 
             <div className="flex gap-2">
-              <Button type="submit" size="sm">
+              <Button type="submit" size="sm" disabled={isPending}>
                 <Check className="h-4 w-4 mr-2" />
                 Uložit
               </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => setIsEditing(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEditing(false)}
+                disabled={isPending}
+              >
+                <X className="h-4 w-4 mr-2" />
                 Zrušit
               </Button>
             </div>
           </form>
         ) : (
           <div className="space-y-3">
-            {reservation.customer_name && (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium">{reservation.customer_name}</p>
-                    <p className="text-xs text-muted-foreground">Jméno</p>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => copyToClipboard(reservation.customer_name!, "Jméno")}
-                  className="h-8 w-8 p-0"
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Jméno</p>
+                <p className="font-medium">{reservation.customer_name}</p>
               </div>
-            )}
+              <Button variant="ghost" size="sm" onClick={() => copyToClipboard(reservation.customer_name, "Jméno")}>
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
 
             {reservation.customer_email && (
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium">{reservation.customer_email}</p>
-                    <p className="text-xs text-muted-foreground">E-mail</p>
-                  </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">E-mail</p>
+                  <p className="font-medium">{reservation.customer_email}</p>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => copyToClipboard(reservation.customer_email!, "E-mail")}
-                  className="h-8 w-8 p-0"
                 >
-                  <Copy className="h-3 w-3" />
+                  <Copy className="h-4 w-4" />
                 </Button>
               </div>
             )}
 
             {reservation.customer_phone && (
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium">{reservation.customer_phone}</p>
-                    <p className="text-xs text-muted-foreground">Telefon</p>
-                  </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Telefon</p>
+                  <p className="font-medium">{reservation.customer_phone}</p>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => copyToClipboard(reservation.customer_phone!, "Telefon")}
-                  className="h-8 w-8 p-0"
                 >
-                  <Copy className="h-3 w-3" />
+                  <Copy className="h-4 w-4" />
                 </Button>
               </div>
             )}
 
-            {reservation.customer_address && (
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-2">
-                  <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium">{formatAddress(reservation.customer_address)}</p>
-                    <p className="text-xs text-muted-foreground">Adresa</p>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => copyToClipboard(formatAddress(reservation.customer_address), "Adresa")}
-                  className="h-8 w-8 p-0 mt-0"
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Adresa</p>
+                <p className="font-medium">{formatAddress(reservation.customer_address)}</p>
               </div>
-            )}
-
-            {!reservation.customer_name && !reservation.customer_email && !reservation.customer_phone && (
-              <div className="text-center text-muted-foreground py-4">
-                <p>Žádné údaje o zákazníkovi</p>
-              </div>
-            )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => copyToClipboard(formatAddress(reservation.customer_address), "Adresa")}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>

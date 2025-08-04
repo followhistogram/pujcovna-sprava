@@ -68,9 +68,22 @@ export default async function ReservationDetailPage({
               </div>
 
               {/* Reservation Items */}
-              <Suspense fallback={<div>Načítání položek rezervace...</div>}>
-                <ReservationItemsManager reservation={reservation} />
-              </Suspense>
+              <ReservationItemsManager
+                items={reservation.items || []}
+                setItems={() => {}} // This would need proper state management
+                availableCameras={[]}
+                availableFilms={[]}
+                availableAccessories={[]}
+                rentalDays={
+                  reservation
+                    ? Math.ceil(
+                        (new Date(reservation.rental_end_date).getTime() -
+                          new Date(reservation.rental_start_date).getTime()) /
+                          (1000 * 60 * 60 * 24),
+                      )
+                    : 1
+                }
+              />
 
               {/* Payment Transactions */}
               <Suspense fallback={<div>Načítání platebních transakcí...</div>}>
