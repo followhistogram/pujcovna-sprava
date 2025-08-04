@@ -1,63 +1,114 @@
 import { Suspense } from "react"
 import { notFound } from "next/navigation"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { ChevronLeft } from "lucide-react"
 import { fetchReservationById } from "@/lib/data"
-import { ReservationStatusUpdater } from "@/components/reservation-status-updater"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ReservationDetailsCard } from "@/components/reservation-details-card"
-import { CustomerInfoCard } from "@/components/customer-info-card"
-import { FinancialSummaryCard } from "@/components/financial-summary-card"
+import { ReservationForm } from "@/components/reservation-form"
+import { ReservationItemsManager } from "@/components/reservation-items-manager"
 import { PaymentTransactionsCard } from "@/components/payment-transactions-card"
-import { ReservationItemsCard } from "@/components/reservation-items-card"
-import { PageSkeleton } from "@/components/skeletons"
+import { EmailLogsCard } from "@/components/email-logs-card"
+import { ReservationStatusCard } from "@/components/reservation-status-card"
+import { CustomerInfoCard } from "@/components/customer-info-card"
+import { ReservationDetailsCard } from "@/components/reservation-details-card"
+import { FinancialSummaryCard } from "@/components/financial-summary-card"
+import { ReservationStatusBadge } from "@/components/reservation-status-badge"
+import { format } from "date-fns"
 
-export default async function ReservationDetailPage({ params }: { params: { id: string } }) {
-  const id = Number.parseInt(params.id, 10)
-  if (isNaN(id)) {
-    notFound()
-  }
-
-  return (
-    <Suspense fallback={<PageSkeleton />}>
-      <ReservationData id={id} />
-    </Suspense>
-  )
-}
-
-async function ReservationData({ id }: { id: number }) {
-  const reservation = await fetchReservationById(id)
+export default async function ReservationDetailPage({
+  params,
+}: {
+  params: { id: string }
+}) {
+  const reservation = await fetchReservationById(params.id)
 
   if (!reservation) {
     notFound()
   }
 
+  const isNew = params.id === "new"
+
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-bold">Rezervace #{reservation.short_id}</h1>
-          <p className="text-muted-foreground">Detail rezervace a správa stavu.</p>
+    <main className="container mx-auto py-6 px-4">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" className="h-9 w-9 bg-transparent" asChild>
+            <Link href="/reservations">
+              <ChevronLeft className="h-4 w-4" />
+              <span className="sr-only">Zpět na rezervace</span>
+            </Link>
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {isNew ? "Nová rezervace" : `Rezervace ${reservation.short_id}`}
+            </h1>
+            {!isNew && (
+              <p className="text-muted-foreground">
+                Vytvořeno: {format(new Date(reservation.created_at), "d. M. yyyy")}
+              </p>
+            )}
+          </div>
         </div>
+        {!isNew && <ReservationStatusBadge status={reservation.status} />}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Stav rezervace</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ReservationStatusUpdater reservation={reservation} />
-            </CardContent>
-          </Card>
-          <ReservationItemsCard reservationId={reservation.id} />
-          <PaymentTransactionsCard reservationId={reservation.id} />
-        </div>
+      {/* Two-column layout */}
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        {/* Left Column - Main Content */}
         <div className="space-y-6">
-          <ReservationDetailsCard reservation={reservation} />
-          <CustomerInfoCard customer={reservation.customer} />
-          <FinancialSummaryCard reservationId={reservation.id} />
+          {isNew ? (
+            <ReservationForm />
+          ) : (
+            <>
+              {/* Customer and Reservation Details - Side by Side */}
+              <div className="grid gap-6 md:grid-cols-2">
+                <CustomerInfoCard reservation={reservation} />
+                <ReservationDetailsCard reservation={reservation} />
+              </div>
+
+              {/* Reservation Items */}
+              <Suspense fallback={<div>Načítání položek rezervace...</div>}>
+                <ReservationItemsManager reservation={reservation} />
+              </Suspense>
+
+              {/* Payment Transactions */}
+              <Suspense fallback={<div>Načítání platebních transakcí...</div>}>
+                <PaymentTransactionsCard
+                  reservationId={reservation.id}
+                  transactions={reservation.transactions || []}
+                  totalPrice={reservation.total_price || 0}
+                  totalPaid={reservation.amount_paid || 0}
+                />
+              </Suspense>
+
+              {/* Email History */}
+              <Suspense fallback={<div>Načítání historie e-mailů...</div>}>
+                <EmailLogsCard reservationId={reservation.id} logs={[]} />
+              </Suspense>
+            </>
+          )}
+        </div>
+
+        {/* Right Column - Sidebar */}
+        <div className="space-y-6">
+          {!isNew && (
+            <>
+              {/* Status Management */}
+              <ReservationStatusCard reservation={reservation} />
+
+              {/* Financial Summary */}
+              <FinancialSummaryCard reservation={reservation} transactions={reservation.transactions || []} />
+            </>
+          )}
+
+          {isNew && (
+            <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
+              <p>Vyplňte základní údaje rezervace pro zobrazení dalších možností.</p>
+            </div>
+          )}
         </div>
       </div>
-    </div>
+    </main>
   )
 }

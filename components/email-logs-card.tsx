@@ -1,77 +1,94 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { createClient } from "@/lib/supabase/server"
-import { AlertCircle, CheckCircle2 } from "lucide-react"
+import { Mail, Clock, CheckCircle, XCircle } from "lucide-react"
+import { format } from "date-fns"
+import { cs } from "date-fns/locale"
 
-async function getEmailLogs(reservationId: string) {
-  try {
-    const supabase = await createClient()
-    const { data, error } = await supabase
-      .from("email_logs")
-      .select("*")
-      .eq("reservation_id", reservationId)
-      .order("created_at", { ascending: false })
-
-    if (error) {
-      console.error("Error fetching email logs:", error)
-      return []
-    }
-    return data || []
-  } catch (error) {
-    console.error("Error creating Supabase client:", error)
-    return []
-  }
+interface EmailLog {
+  id: string
+  reservation_id: string
+  template_name: string
+  recipient_email: string
+  subject: string
+  status: "sent" | "failed" | "pending"
+  sent_at: string
+  error_message?: string
+  created_at: string
 }
 
-export async function EmailLogsCard({ reservationId }: { reservationId: string }) {
-  const logs = await getEmailLogs(reservationId)
+interface EmailLogsCardProps {
+  reservationId: string
+  logs: EmailLog[]
+}
+
+export function EmailLogsCard({ reservationId, logs }: EmailLogsCardProps) {
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "sent":
+        return <CheckCircle className="h-4 w-4 text-green-500" />
+      case "failed":
+        return <XCircle className="h-4 w-4 text-red-500" />
+      case "pending":
+        return <Clock className="h-4 w-4 text-yellow-500" />
+      default:
+        return <Mail className="h-4 w-4 text-muted-foreground" />
+    }
+  }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "sent":
+        return (
+          <Badge variant="default" className="bg-green-100 text-green-800">
+            Odesláno
+          </Badge>
+        )
+      case "failed":
+        return <Badge variant="destructive">Chyba</Badge>
+      case "pending":
+        return <Badge variant="secondary">Čeká</Badge>
+      default:
+        return <Badge variant="outline">{status}</Badge>
+    }
+  }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Historie e-mailů</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <Mail className="h-5 w-5" />
+          Historie e-mailů
+        </CardTitle>
+        <CardDescription>Přehled odeslaných e-mailů pro tuto rezervaci</CardDescription>
       </CardHeader>
       <CardContent>
-        {logs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Zatím nebyly odeslány žádné e-maily.</p>
-        ) : (
-          <ul className="space-y-4">
+        {logs.length > 0 ? (
+          <div className="space-y-4">
             {logs.map((log) => (
-              <li key={log.id} className="flex items-start space-x-3">
-                <div>
-                  {log.status === "sent" ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <AlertCircle className="h-5 w-5 text-red-500" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-center">
-                    <p className="text-sm font-medium">{log.subject}</p>
-                    <Badge variant={log.status === "sent" ? "default" : "destructive"} className="capitalize">
-                      {log.status === "sent" ? "Odesláno" : "Chyba"}
-                    </Badge>
+              <div key={log.id} className="flex items-start gap-3 p-3 border rounded-lg">
+                <div className="mt-0.5">{getStatusIcon(log.status)}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="font-medium text-sm truncate">{log.subject}</p>
+                    {getStatusBadge(log.status)}
                   </div>
-                  <p className="text-sm text-muted-foreground">{new Date(log.created_at).toLocaleString("cs-CZ")}</p>
-                  {log.status === "failed" && log.error_message && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <p className="text-xs text-red-500 mt-1 cursor-pointer truncate">
-                            Důvod: {log.error_message}
-                          </p>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="max-w-xs">{log.error_message}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
+                  <p className="text-sm text-muted-foreground mb-1">Příjemce: {log.recipient_email}</p>
+                  <p className="text-sm text-muted-foreground mb-1">Šablona: {log.template_name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {log.sent_at
+                      ? `Odesláno: ${format(new Date(log.sent_at), "d. M. yyyy HH:mm", { locale: cs })}`
+                      : `Vytvořeno: ${format(new Date(log.created_at), "d. M. yyyy HH:mm", { locale: cs })}`}
+                  </p>
+                  {log.error_message && <p className="text-xs text-red-600 mt-1">Chyba: {log.error_message}</p>}
                 </div>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
+        ) : (
+          <div className="text-center text-muted-foreground py-8">
+            <Mail className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>Zatím nebyly odeslány žádné e-maily</p>
+          </div>
         )}
       </CardContent>
     </Card>

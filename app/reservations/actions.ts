@@ -8,14 +8,6 @@ import { fakturoidApiRequest } from "@/lib/fakturoid"
 import { zaslatApiRequest } from "@/lib/zaslat"
 import { sendEmail } from "@/lib/email"
 
-const ReservationStatus = {
-  NEW: "new",
-  CONFIRMED: "confirmed",
-  PAID: "paid",
-  COMPLETED: "completed",
-  CANCELLED: "cancelled",
-} as const
-
 const reservationItemSchema = z.object({
   item_id: z.string().uuid(),
   item_type: z.enum(["camera", "film", "accessory"]),
@@ -44,9 +36,26 @@ const reservationSchema = z.object({
   shipping_return_url: z.string().url("Neplatný formát URL.").optional().or(z.literal("")),
 })
 
-const UpdateStatusSchema = z.object({
-  id: z.coerce.number(),
-  status: z.nativeEnum(ReservationStatus),
+const updateReservationStatusSchema = z.object({
+  reservationId: z.string().uuid(),
+  status: z.enum(["pending", "confirmed", "ready_for_dispatch", "active", "returned", "completed", "cancelled"]),
+})
+
+const updateCustomerInfoSchema = z.object({
+  reservationId: z.string(),
+  customerName: z.string().min(1, "Jméno je povinné"),
+  customerEmail: z.string().email("Neplatný e-mail"),
+  customerPhone: z.string().min(1, "Telefon je povinný"),
+  customerAddress: z.string().min(1, "Adresa je povinná"),
+})
+
+const updateReservationDetailsSchema = z.object({
+  reservationId: z.string(),
+  rentalStartDate: z.string(),
+  rentalEndDate: z.string(),
+  deliveryMethod: z.enum(["pickup", "delivery"]),
+  paymentMethod: z.enum(["cash", "card", "transfer"]),
+  notes: z.string().optional(),
 })
 
 export async function saveReservation(prevState: any, formData: FormData) {
@@ -80,7 +89,7 @@ export async function saveReservation(prevState: any, formData: FormData) {
 
   if (!validatedFields.success) {
     console.error(validatedFields.error.flatten().fieldErrors)
-    return { success: false, message: "Formulář obsahuje chyby", errors: validatedFields.error.flatten().fieldErrors }
+    return { success: false, message: "Formulář obsahuje chyby.", errors: validatedFields.error.flatten().fieldErrors }
   }
 
   const { id, items: reservationItems, customer_notes, internal_notes, ...data } = validatedFields.data
@@ -99,7 +108,7 @@ export async function saveReservation(prevState: any, formData: FormData) {
     sales_total,
     customer_notes: customer_notes || null,
     internal_notes: internal_notes || null,
-    status: id ? undefined : ReservationStatus.NEW,
+    status: id ? undefined : "new",
     amount_paid: id ? undefined : 0,
   }
 
@@ -137,6 +146,7 @@ export async function saveReservation(prevState: any, formData: FormData) {
           ...newReservationDataForEmail,
           items: reservationItems,
         }
+
         sendEmail({
           templateName: "reservation_confirmation",
           recipient: newReservationDataForEmail.customer_email,
@@ -154,39 +164,151 @@ export async function saveReservation(prevState: any, formData: FormData) {
   }
 }
 
-export async function updateReservationStatus(prevState: any, formData: FormData) {
-  const supabase = createClient()
+export async function updateReservationStatus(formData: FormData) {
+  try {
+    const supabase = await createClient()
 
-  const validatedFields = UpdateStatusSchema.safeParse({
-    id: formData.get("id"),
-    status: formData.get("status"),
-  })
+    const reservationId = formData.get("reservationId") as string
+    const newStatus = formData.get("status") as string
 
-  if (!validatedFields.success) {
+    if (!reservationId || !newStatus) {
+      return {
+        success: false,
+        error: "Chybí povinné údaje",
+      }
+    }
+
+    const { error } = await supabase.from("reservations").update({ status: newStatus }).eq("id", reservationId)
+
+    if (error) {
+      console.error("Error updating reservation status:", error)
+      return {
+        success: false,
+        error: "Chyba při aktualizaci stavu rezervace",
+      }
+    }
+
+    revalidatePath(`/reservations/${reservationId}`)
     return {
-      message: "Neplatná data pro aktualizaci stavu.",
-      error: true,
+      success: true,
+      message: "Stav rezervace byl aktualizován",
+    }
+  } catch (error) {
+    console.error("Error in updateReservationStatus:", error)
+    return {
+      success: false,
+      error: "Neočekávaná chyba",
     }
   }
+}
 
-  const { id, status } = validatedFields.data
+export async function updateCustomerInfo(prevState: any, formData: FormData) {
+  try {
+    const supabase = await createClient()
 
-  const { error } = await supabase.from("reservations").update({ status: status }).eq("id", id)
+    const validatedFields = updateCustomerInfoSchema.safeParse({
+      reservationId: formData.get("reservationId"),
+      customerName: formData.get("customerName"),
+      customerEmail: formData.get("customerEmail"),
+      customerPhone: formData.get("customerPhone"),
+      customerAddress: formData.get("customerAddress"),
+    })
 
-  if (error) {
-    console.error("Error updating reservation status:", error)
+    if (!validatedFields.success) {
+      return {
+        success: false,
+        error: "Neplatné údaje",
+        fieldErrors: validatedFields.error.flatten().fieldErrors,
+      }
+    }
+
+    const { reservationId, customerName, customerEmail, customerPhone, customerAddress } = validatedFields.data
+
+    const { error } = await supabase
+      .from("reservations")
+      .update({
+        customer_name: customerName,
+        customer_email: customerEmail,
+        customer_phone: customerPhone,
+        customer_address: customerAddress,
+      })
+      .eq("id", reservationId)
+
+    if (error) {
+      console.error("Error updating customer info:", error)
+      return {
+        success: false,
+        error: "Chyba při aktualizaci údajů zákazníka",
+      }
+    }
+
+    revalidatePath(`/reservations/${reservationId}`)
     return {
-      message: "Nepodařilo se aktualizovat stav rezervace.",
-      error: true,
+      success: true,
+      message: "Údaje zákazníka byly aktualizovány",
+    }
+  } catch (error) {
+    console.error("Error in updateCustomerInfo:", error)
+    return {
+      success: false,
+      error: "Neočekávaná chyba",
     }
   }
+}
 
-  revalidatePath("/reservations")
-  revalidatePath(`/reservations/${id}`)
+export async function updateReservationDetails(prevState: any, formData: FormData) {
+  try {
+    const supabase = await createClient()
 
-  return {
-    message: `Stav rezervace byl úspěšně aktualizován na "${status}".`,
-    error: false,
+    const validatedFields = updateReservationDetailsSchema.safeParse({
+      reservationId: formData.get("reservationId"),
+      rentalStartDate: formData.get("rentalStartDate"),
+      rentalEndDate: formData.get("rentalEndDate"),
+      deliveryMethod: formData.get("deliveryMethod"),
+      paymentMethod: formData.get("paymentMethod"),
+      notes: formData.get("notes"),
+    })
+
+    if (!validatedFields.success) {
+      return {
+        success: false,
+        error: "Neplatné údaje",
+        fieldErrors: validatedFields.error.flatten().fieldErrors,
+      }
+    }
+
+    const { reservationId, rentalStartDate, rentalEndDate, deliveryMethod, paymentMethod, notes } = validatedFields.data
+
+    const { error } = await supabase
+      .from("reservations")
+      .update({
+        rental_start_date: rentalStartDate,
+        rental_end_date: rentalEndDate,
+        delivery_method: deliveryMethod,
+        payment_method: paymentMethod,
+        notes: notes || null,
+      })
+      .eq("id", reservationId)
+
+    if (error) {
+      console.error("Error updating reservation details:", error)
+      return {
+        success: false,
+        error: "Chyba při aktualizaci detailů rezervace",
+      }
+    }
+
+    revalidatePath(`/reservations/${reservationId}`)
+    return {
+      success: true,
+      message: "Detaily rezervace byly aktualizovány",
+    }
+  } catch (error) {
+    console.error("Error in updateReservationDetails:", error)
+    return {
+      success: false,
+      error: "Neočekávaná chyba",
+    }
   }
 }
 
