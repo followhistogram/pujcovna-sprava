@@ -1,87 +1,179 @@
-import { createClient } from "@/lib/supabase/server"
-import { StatsCards } from "@/components/dashboard/stats-cards"
-import { CameraTimelineCalendar } from "@/components/dashboard/camera-timeline-calendar"
-import { UpcomingDispatches } from "@/components/dashboard/upcoming-dispatches"
-import { ExpectedReturns } from "@/components/dashboard/expected-returns"
-import { addDays, format, startOfMonth, endOfMonth } from "date-fns"
-import type { Camera } from "@/lib/types"
+import { Suspense } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Calendar, Camera, Package, TrendingUp } from "lucide-react"
 
 export const dynamic = "force-dynamic"
 
-export default async function DashboardPage() {
-  const supabase = await createClient()
-
-  // --- Data Fetching ---
-
-  // 1. Stats Cards Data
-  const { data: depositData, error: depositError } = await supabase
-    .from("reservations")
-    .select("deposit_total")
-    .in("status", ["confirmed", "ready_for_dispatch", "active", "returned"])
-
-  const totalDeposits = depositData?.reduce((sum, r) => sum + (r.deposit_total || 0), 0) || 0
-
-  const { data: filmForecastData, error: filmForecastError } = await supabase.rpc("get_film_forecast")
-
-  const filmForecast = filmForecastData || []
-
-  // 2. Upcoming Dispatches & Expected Returns
-  const today = format(new Date(), "yyyy-MM-dd")
-  const sevenDaysFromNow = format(addDays(new Date(), 7), "yyyy-MM-dd")
-
-  const { data: upcomingDispatchesData, error: dispatchesError } = await supabase
-    .from("reservations")
-    .select("id, short_id, customer_name, rental_start_date, items:reservation_items(name)")
-    .in("status", ["confirmed", "ready_for_dispatch"])
-    .gte("rental_start_date", today)
-    .lte("rental_start_date", sevenDaysFromNow)
-    .order("rental_start_date", { ascending: true })
-
-  const { data: expectedReturnsData, error: returnsError } = await supabase
-    .from("reservations")
-    .select("id, short_id, customer_name, rental_end_date, items:reservation_items(name)")
-    .eq("status", "active")
-    .lt("rental_end_date", today)
-    .order("rental_end_date", { ascending: true })
-
-  // 3. Calendar Data
-  const viewStartDate = startOfMonth(new Date())
-  const viewEndDate = endOfMonth(addDays(new Date(), 60)) // Show current month + next 2 months
-
-  const { data: calendarReservationsData, error: calendarError } = await supabase
-    .from("reservations")
-    .select("*, items:reservation_items(*)")
-    .in("status", ["confirmed", "ready_for_dispatch", "active", "returned"])
-    .not("rental_start_date", "is", null)
-    .not("rental_end_date", "is", null)
-    .gte("rental_start_date", format(viewStartDate, "yyyy-MM-dd"))
-    .lte("rental_start_date", format(viewEndDate, "yyyy-MM-dd"))
-
-  const { data: camerasData, error: camerasError } = await supabase.from("cameras").select("id, name").order("name")
-
-  // Error handling
-  if (depositError || filmForecastError || dispatchesError || returnsError || calendarError || camerasError) {
-    console.error({
-      depositError,
-      filmForecastError,
-      dispatchesError,
-      returnsError,
-      calendarError,
-      camerasError,
-    })
-  }
-
+function DashboardSkeleton() {
   return (
-    <div className="flex flex-col gap-6">
-      <StatsCards totalDeposits={totalDeposits} filmForecast={filmForecast} />
-      <CameraTimelineCalendar
-        reservations={(calendarReservationsData as any[]) || []}
-        cameras={(camerasData as Camera[]) || []}
-      />
-      <div className="grid gap-6 md:grid-cols-2">
-        <UpcomingDispatches reservations={upcomingDispatchesData || []} />
-        <ExpectedReturns reservations={expectedReturnsData || []} />
+    <div className="space-y-6">
+      <div>
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-4 w-96 mt-2" />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-4" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-8 w-16" />
+              <Skeleton className="h-3 w-32 mt-2" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-64" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-64 w-full" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-64" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-64 w-full" />
+          </CardContent>
+        </Card>
       </div>
     </div>
+  )
+}
+
+async function DashboardContent() {
+  // Simulace načítání dat
+  await new Promise((resolve) => setTimeout(resolve, 100))
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground">Přehled vašeho půjčovacího systému</p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Aktivní rezervace</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">12</div>
+            <p className="text-xs text-muted-foreground">+2 od minulého týdne</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Dostupné fotoaparáty</CardTitle>
+            <Camera className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">8</div>
+            <p className="text-xs text-muted-foreground">z celkem 15 kusů</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Sklad filmů</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">156</div>
+            <p className="text-xs text-muted-foreground">kusů na skladě</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Měsíční tržby</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">45,230 Kč</div>
+            <p className="text-xs text-muted-foreground">+12% oproti minulému měsíci</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Nadcházející odeslání</CardTitle>
+            <CardDescription>Rezervace připravené k odeslání v následujících 7 dnech</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Jan Novák</p>
+                  <p className="text-sm text-muted-foreground">Polaroid SX-70</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium">Zítra</p>
+                  <p className="text-xs text-muted-foreground">#R001</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Marie Svobodová</p>
+                  <p className="text-sm text-muted-foreground">Instax Mini 11</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium">Za 2 dny</p>
+                  <p className="text-xs text-muted-foreground">#R002</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Očekávané návraty</CardTitle>
+            <CardDescription>Rezervace s ukončeným termínem půjčení</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Petr Dvořák</p>
+                  <p className="text-sm text-muted-foreground">Polaroid 600</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-red-600">Včera</p>
+                  <p className="text-xs text-muted-foreground">#R003</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Anna Krásná</p>
+                  <p className="text-sm text-muted-foreground">Instax Wide 300</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium">Dnes</p>
+                  <p className="text-xs text-muted-foreground">#R004</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<DashboardSkeleton />}>
+      <DashboardContent />
+    </Suspense>
   )
 }

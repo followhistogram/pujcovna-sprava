@@ -1,29 +1,101 @@
-export const revenueData = [
-  { month: "Jan", revenue: 2000 },
-  { month: "Feb", revenue: 1800 },
-  { month: "Mar", revenue: 2200 },
-  { month: "Apr", revenue: 2500 },
-  { month: "May", revenue: 2300 },
-  { month: "Jun", revenue: 3200 },
-  { month: "Jul", revenue: 3500 },
-  { month: "Aug", revenue: 3700 },
-  { month: "Sep", revenue: 2900 },
-  { month: "Oct", revenue: 3100 },
-  { month: "Nov", revenue: 4200 },
-  { month: "Dec", revenue: 4800 },
-]
+import { createClient } from "@/lib/supabase/server"
+import type { Camera, Film, Accessory, Reservation } from "@/lib/types"
 
-export const utilizationData = [
-  { month: "Jan", utilization: 65 },
-  { month: "Feb", utilization: 68 },
-  { month: "Mar", utilization: 72 },
-  { month: "Apr", utilization: 75 },
-  { month: "May", utilization: 70 },
-  { month: "Jun", utilization: 80 },
-  { month: "Jul", utilization: 85 },
-  { month: "Aug", utilization: 88 },
-  { month: "Sep", utilization: 78 },
-  { month: "Oct", utilization: 82 },
-  { month: "Nov", utilization: 90 },
-  { month: "Dec", utilization: 95 },
-]
+export async function getCameras(): Promise<Camera[]> {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase.from("cameras").select("*").order("name")
+
+    if (error) {
+      console.error("Error fetching cameras:", error)
+      return []
+    }
+
+    return data || []
+  } catch (error) {
+    console.error("Error in getCameras:", error)
+    return []
+  }
+}
+
+export async function getFilms(): Promise<Film[]> {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase.from("films").select("*").order("name")
+
+    if (error) {
+      console.error("Error fetching films:", error)
+      return []
+    }
+
+    return data || []
+  } catch (error) {
+    console.error("Error in getFilms:", error)
+    return []
+  }
+}
+
+export async function getAccessories(): Promise<Accessory[]> {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase.from("accessories").select("*").order("name")
+
+    if (error) {
+      console.error("Error fetching accessories:", error)
+      return []
+    }
+
+    return data || []
+  } catch (error) {
+    console.error("Error in getAccessories:", error)
+    return []
+  }
+}
+
+export async function getReservations(): Promise<Reservation[]> {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from("reservations")
+      .select(`
+        *,
+        items:reservation_items(*)
+      `)
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error("Error fetching reservations:", error)
+      return []
+    }
+
+    return data || []
+  } catch (error) {
+    console.error("Error in getReservations:", error)
+    return []
+  }
+}
+
+export async function getReservation(id: string): Promise<Reservation | null> {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from("reservations")
+      .select(`
+        *,
+        items:reservation_items(*),
+        transactions:payment_transactions(*)
+      `)
+      .eq("id", id)
+      .single()
+
+    if (error) {
+      console.error("Error fetching reservation:", error)
+      return null
+    }
+
+    return data
+  } catch (error) {
+    console.error("Error in getReservation:", error)
+    return null
+  }
+}
