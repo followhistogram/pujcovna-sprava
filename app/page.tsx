@@ -29,6 +29,12 @@ export default async function DashboardPage() {
 
     const filmForecast = filmForecastData || []
 
+    // New data fetch for active reservations count
+    const { count: activeReservationsCount } = await supabase
+      .from("reservations")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "active")
+
     // 2. Upcoming Dispatches & Expected Returns
     const today = format(new Date(), "yyyy-MM-dd")
     const sevenDaysFromNow = format(addDays(new Date(), 7), "yyyy-MM-dd")
@@ -69,7 +75,11 @@ export default async function DashboardPage() {
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">Přehled vašeho půjčovacího systému</p>
         </div>
-        <StatsCards totalDeposits={totalDeposits} filmForecast={filmForecast} />
+        <StatsCards
+          totalDeposits={totalDeposits}
+          filmForecast={filmForecast}
+          activeReservationsCount={activeReservationsCount || 0}
+        />
         <CameraTimelineCalendar
           reservations={(calendarReservationsData as any[]) || []}
           cameras={(camerasData as Camera[]) || []}

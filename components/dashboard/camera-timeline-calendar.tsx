@@ -11,7 +11,6 @@ import {
   isToday,
   isSameMonth,
   differenceInDays,
-  isWeekend,
   max,
   min,
 } from "date-fns"
@@ -143,7 +142,7 @@ export function CameraTimelineCalendar({ reservations, cameras }: CameraTimeline
                   className={cn(
                     "border-l border-t",
                     isToday(day) && "bg-primary/10",
-                    isWeekend(day) && !isToday(day) && "bg-muted/50",
+                    (day.getDay() === 0 || day.getDay() === 6) && !isToday(day) && "bg-muted/50",
                   )}
                 ></div>
               ))}

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import type { Accessory } from "@/lib/types"
-import ImageUpload from "./image-upload"
+import ImageUrlManager from "./image-url-manager"
 
 type AccessoryFormProps = {
   accessory: Partial<Accessory> | null
@@ -41,20 +41,10 @@ export default function AccessoryForm({ accessory, images, onImagesChange }: Acc
         <Card>
           <CardHeader>
             <CardTitle>Obrázky</CardTitle>
+            <CardDescription>Přidejte URL adresy obrázků.</CardDescription>
           </CardHeader>
           <CardContent>
-            {accessory?.id ? (
-              <ImageUpload
-                images={images}
-                onImagesChange={onImagesChange}
-                itemId={accessory.id}
-                bucket="inventory-images"
-              />
-            ) : (
-              <div className="text-sm text-muted-foreground p-4 text-center border-2 border-dashed rounded-lg">
-                Nejprve uložte příslušenství pro možnost nahrání obrázků.
-              </div>
-            )}
+            <ImageUrlManager images={images} onImagesChange={onImagesChange} />
           </CardContent>
         </Card>
       </div>

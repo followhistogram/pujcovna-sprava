@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import type { Film } from "@/lib/types"
-import ImageUpload from "./image-upload" // Assuming this is generic enough
+import ImageUrlManager from "./image-url-manager"
 
 type FilmFormProps = {
   film: Partial<Film> | null
@@ -41,15 +41,10 @@ export default function FilmForm({ film, images, onImagesChange }: FilmFormProps
         <Card>
           <CardHeader>
             <CardTitle>Obrázky</CardTitle>
+            <CardDescription>Přidejte URL adresy obrázků.</CardDescription>
           </CardHeader>
           <CardContent>
-            {film?.id ? (
-              <ImageUpload images={images} onImagesChange={onImagesChange} itemId={film.id} bucket="inventory-images" />
-            ) : (
-              <div className="text-sm text-muted-foreground p-4 text-center border-2 border-dashed rounded-lg">
-                Nejprve uložte film pro možnost nahrání obrázků.
-              </div>
-            )}
+            <ImageUrlManager images={images} onImagesChange={onImagesChange} />
           </CardContent>
         </Card>
       </div>

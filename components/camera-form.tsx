@@ -14,8 +14,8 @@ import { PlusCircle, Trash2 } from "lucide-react"
 import type { Camera, Category, PackageItem, Film } from "@/lib/types"
 import { saveCamera } from "@/app/cameras/actions"
 import { toast } from "sonner"
-import ImageUpload from "@/components/image-upload"
 import { MultiSelect } from "@/components/ui/multi-select"
+import ImageUrlManager from "./image-url-manager"
 
 type CameraFormProps = {
   camera: (Partial<Camera> & { compatible_films?: Film[] }) | null
@@ -319,10 +319,10 @@ export default function CameraForm({ camera, categories, allFilms }: CameraFormP
           <Card className="overflow-hidden">
             <CardHeader>
               <CardTitle>Obrázky produktu</CardTitle>
-              <CardDescription>Přidejte fotografie pro prezentaci.</CardDescription>
+              <CardDescription>Přidejte URL adresy obrázků.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ImageUpload images={images} onImagesChange={setImages} itemId={camera?.id} bucket="camera-images" />
+              <ImageUrlManager images={images} onImagesChange={setImages} />
             </CardContent>
           </Card>
         </div>

@@ -1,12 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { DollarSign, Calendar, TrendingUp, Package } from "lucide-react"
+import { DollarSign, Calendar, Package } from "lucide-react"
 
 interface StatsCardsProps {
   totalDeposits: number
   filmForecast: any[]
+  activeReservationsCount: number // Nová prop pro počet aktivních rezervací
 }
 
-export function StatsCards({ totalDeposits, filmForecast }: StatsCardsProps) {
+export function StatsCards({ totalDeposits, filmForecast, activeReservationsCount }: StatsCardsProps) {
   const lowStockFilms = filmForecast.filter((film) => film.stock <= 5).length
 
   return (
@@ -27,7 +28,7 @@ export function StatsCards({ totalDeposits, filmForecast }: StatsCardsProps) {
           <Calendar className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">12</div>
+          <div className="text-2xl font-bold">{activeReservationsCount}</div> {/* Používáme dynamickou hodnotu */}
           <p className="text-xs text-muted-foreground">Aktuálně probíhající půjčení</p>
         </CardContent>
       </Card>
@@ -41,7 +42,6 @@ export function StatsCards({ totalDeposits, filmForecast }: StatsCardsProps) {
           <p className="text-xs text-muted-foreground">Filmů s nízkým stavem</p>
         </CardContent>
       </Card>
-      
     </div>
   )
 }
