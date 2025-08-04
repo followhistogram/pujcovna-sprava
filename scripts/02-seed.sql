@@ -73,6 +73,14 @@ BEGIN
      NULL)
     RETURNING id INTO canon_ae1_cam_id;
 
+    -- Insert sample cameras
+    INSERT INTO cameras (name, brand, model, serial_number, purchase_date, purchase_price, daily_rate, status, condition, description) VALUES
+    ('Polaroid SX-70 Alpha 1', 'Polaroid', 'SX-70', 'PX70001', '2023-01-15', 15000.00, 500.00, 'available', 'excellent', 'Klasický skládací Polaroid v perfektním stavu'),
+    ('Instax Mini 11 Charcoal Gray', 'Fujifilm', 'Instax Mini 11', 'IM11001', '2023-02-20', 2500.00, 200.00, 'available', 'excellent', 'Moderní instantní fotoaparát s automatickým nastavením'),
+    ('Polaroid Now i-Type Black', 'Polaroid', 'Now', 'PN001', '2023-03-10', 4500.00, 300.00, 'available', 'good', 'Nejnovější Polaroid s autofokusem'),
+    ('Instax Wide 300', 'Fujifilm', 'Instax Wide 300', 'IW300001', '2023-04-05', 3200.00, 250.00, 'available', 'excellent', 'Širokoúhlý instantní fotoaparát'),
+    ('Polaroid SX-70 Sonar OneStep', 'Polaroid', 'SX-70 Sonar', 'PXS001', '2023-05-12', 18000.00, 600.00, 'maintenance', 'good', 'Vintage Polaroid s autofokusem');
+
     -- Insert pricing tiers for cameras
     IF instax_wide_cam_id IS NOT NULL THEN
         INSERT INTO pricing_tiers (camera_id, days_label, price_per_day) VALUES
@@ -144,5 +152,24 @@ BEGIN
         INSERT INTO rentals (customer_name, camera_id, rental_start, rental_end, status, deposit, deposit_status, delivery_method, total_price) VALUES
         ('Lucie Černá', instax_mini_cam_id, '2025-08-05 11:00:00+02', '2025-08-10 19:00:00+02', 'confirmed', 1200, 'received', 'personal', 900);
     END IF;
+
+    -- Insert sample customers
+    INSERT INTO customers (first_name, last_name, email, phone, address, city, postal_code) VALUES
+    ('Jan', 'Novák', 'jan.novak@email.cz', '+420 123 456 789', 'Václavské náměstí 1', 'Praha', '110 00'),
+    ('Marie', 'Svobodová', 'marie.svobodova@email.cz', '+420 987 654 321', 'Náměstí Míru 5', 'Brno', '602 00'),
+    ('Petr', 'Dvořák', 'petr.dvorak@email.cz', '+420 555 123 456', 'Hlavní třída 10', 'Ostrava', '702 00'),
+    ('Anna', 'Nováková', 'anna.novakova@email.cz', '+420 777 888 999', 'Wenceslas Square 15', 'Praha', '110 00');
+
+    -- Insert sample reservations
+    INSERT INTO reservations (customer_id, camera_id, rental_start_date, rental_end_date, total_price, deposit, status, notes) VALUES
+    ((SELECT id FROM customers WHERE email = 'jan.novak@email.cz'), 
+     (SELECT id FROM cameras WHERE serial_number = 'PX70001'), 
+     '2024-02-01', '2024-02-03', 1000.00, 2000.00, 'completed', 'Svatební focení'),
+    ((SELECT id FROM customers WHERE email = 'marie.svobodova@email.cz'), 
+     (SELECT id FROM cameras WHERE serial_number = 'IM11001'), 
+     '2024-02-15', '2024-02-17', 400.00, 500.00, 'confirmed', 'Rodinná oslava'),
+    ((SELECT id FROM customers WHERE email = 'petr.dvorak@email.cz'), 
+     (SELECT id FROM cameras WHERE serial_number = 'PN001'), 
+     '2024-03-01', '2024-03-05', 1200.00, 1000.00, 'active', 'Firemní akce');
 
 END $$;

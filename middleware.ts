@@ -46,7 +46,7 @@ export async function middleware(request: NextRequest) {
   //    const myNewResponse = NextResponse.next({ request })
   // 2. Copy over the cookies, like so:
   //    myNewResponse.cookies.setAll(supabaseResponse.cookies.getAll())
-  // 3. Change the myNewResponse object here instead of the supabaseResponse object
+  // 3. Change the myNewResponse object instead of the supabaseResponse object
 
   return supabaseResponse
 }

@@ -1,101 +1,53 @@
 import { createClient } from "@/lib/supabase/server"
-import type { Camera, Film, Accessory, Reservation } from "@/lib/types"
 
-export async function getCameras(): Promise<Camera[]> {
+export async function getRevenueData() {
+  const supabase = await createClient()
+
   try {
-    const supabase = await createClient()
-    const { data, error } = await supabase.from("cameras").select("*").order("name")
-
-    if (error) {
-      console.error("Error fetching cameras:", error)
-      return []
-    }
-
-    return data || []
-  } catch (error) {
-    console.error("Error in getCameras:", error)
-    return []
-  }
-}
-
-export async function getFilms(): Promise<Film[]> {
-  try {
-    const supabase = await createClient()
-    const { data, error } = await supabase.from("films").select("*").order("name")
-
-    if (error) {
-      console.error("Error fetching films:", error)
-      return []
-    }
-
-    return data || []
-  } catch (error) {
-    console.error("Error in getFilms:", error)
-    return []
-  }
-}
-
-export async function getAccessories(): Promise<Accessory[]> {
-  try {
-    const supabase = await createClient()
-    const { data, error } = await supabase.from("accessories").select("*").order("name")
-
-    if (error) {
-      console.error("Error fetching accessories:", error)
-      return []
-    }
-
-    return data || []
-  } catch (error) {
-    console.error("Error in getAccessories:", error)
-    return []
-  }
-}
-
-export async function getReservations(): Promise<Reservation[]> {
-  try {
-    const supabase = await createClient()
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("reservations")
-      .select(`
-        *,
-        items:reservation_items(*)
-      `)
-      .order("created_at", { ascending: false })
-
-    if (error) {
-      console.error("Error fetching reservations:", error)
-      return []
-    }
+      .select("total_price, created_at")
+      .eq("status", "completed")
+      .order("created_at", { ascending: true })
 
     return data || []
   } catch (error) {
-    console.error("Error in getReservations:", error)
+    console.error("Error fetching revenue data:", error)
     return []
   }
 }
 
-export async function getReservation(id: string): Promise<Reservation | null> {
+export async function getUtilizationData() {
+  const supabase = await createClient()
+
   try {
-    const supabase = await createClient()
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("reservations")
-      .select(`
-        *,
-        items:reservation_items(*),
-        transactions:payment_transactions(*)
-      `)
-      .eq("id", id)
-      .single()
+      .select("rental_start_date, rental_end_date, status")
+      .in("status", ["confirmed", "active", "completed"])
+      .order("rental_start_date", { ascending: true })
 
-    if (error) {
-      console.error("Error fetching reservation:", error)
-      return null
-    }
-
-    return data
+    return data || []
   } catch (error) {
-    console.error("Error in getReservation:", error)
-    return null
+    console.error("Error fetching utilization data:", error)
+    return []
   }
 }
+
+// Mock data pro reports stránku - v produkci by se načítala z databáze
+export const revenueData = [
+  { name: "Leden", revenue: 45000 },
+  { name: "Únor", revenue: 52000 },
+  { name: "Březen", revenue: 48000 },
+  { name: "Duben", revenue: 61000 },
+  { name: "Květen", revenue: 55000 },
+  { name: "Červen", revenue: 67000 },
+]
+
+export const utilizationData = [
+  { name: "Polaroid SX-70", value: 35 },
+  { name: "Instax Mini 11", value: 28 },
+  { name: "Instax Wide 300", value: 22 },
+  { name: "Polaroid Now", value: 18 },
+  { name: "Instax Square SQ1", value: 15 },
+]

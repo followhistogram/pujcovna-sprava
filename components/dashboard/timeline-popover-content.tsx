@@ -1,43 +1,80 @@
-import type { Reservation } from "@/lib/types"
-import { ReservationStatusBadge } from "@/components/reservation-status-badge"
+import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import { cs } from "date-fns/locale"
+import type { Reservation } from "@/lib/types"
 
-type TimelinePopoverContentProps = {
+interface TimelinePopoverContentProps {
   reservation: Reservation & {
     items: Array<{
-      item_type: "camera" | "film" | "accessory"
-      name: string
+      item_id: string
+      item_type: string
       quantity: number
     }>
   }
 }
 
 export function TimelinePopoverContent({ reservation }: TimelinePopoverContentProps) {
-  const cameraItems = reservation.items.filter((item) => item.item_type === "camera")
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "confirmed":
+        return "Potvrzeno"
+      case "ready_for_dispatch":
+        return "K odeslání"
+      case "active":
+        return "Aktivní"
+      case "returned":
+        return "Vráceno"
+      default:
+        return status
+    }
+  }
+
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+      case "confirmed":
+        return "default"
+      case "ready_for_dispatch":
+        return "secondary"
+      case "active":
+        return "default"
+      case "returned":
+        return "outline"
+      default:
+        return "outline"
+    }
+  }
 
   return (
-    <div className="space-y-3 p-1">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h4 className="font-semibold">{reservation.customer_name}</h4>
-          <p className="text-sm text-muted-foreground">{reservation.short_id}</p>
-        </div>
-        <ReservationStatusBadge status={reservation.status} />
+    <div className="space-y-3">
+      <div>
+        <h4 className="font-medium">{reservation.customer_name}</h4>
+        <p className="text-sm text-muted-foreground">Rezervace #{reservation.short_id}</p>
       </div>
+
       <div className="text-sm">
         <p>
-          <span className="font-medium">Termín:</span> {format(new Date(reservation.rental_start_date), "d. M. yyyy")} -{" "}
-          {format(new Date(reservation.rental_end_date), "d. M. yyyy")}
-        </p>
-        <p>
-          <span className="font-medium">Vybavení:</span> {cameraItems.map((item) => item.name).join(", ")}
+          <strong>Termín:</strong> {format(new Date(reservation.rental_start_date), "d. M. yyyy", { locale: cs })} -{" "}
+          {format(new Date(reservation.rental_end_date), "d. M. yyyy", { locale: cs })}
         </p>
       </div>
-      <Button asChild size="sm" className="w-full">
-        <Link href={`/reservations/${reservation.id}`}>Zobrazit detail</Link>
-      </Button>
+
+      <div>
+        <Badge variant={getStatusVariant(reservation.status)}>{getStatusLabel(reservation.status)}</Badge>
+      </div>
+
+      {reservation.items && reservation.items.length > 0 && (
+        <div>
+          <p className="text-sm font-medium mb-1">Položky:</p>
+          <ul className="text-sm text-muted-foreground">
+            {reservation.items.map((item, index) => (
+              <li key={index}>
+                {item.quantity}x{" "}
+                {item.item_type === "camera" ? "Fotoaparát" : item.item_type === "film" ? "Film" : "Příslušenství"}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

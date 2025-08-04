@@ -1,274 +1,236 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Suspense } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { AlertCircle, PlusCircle, MoreHorizontal, TrendingUp, TrendingDown, History } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { createClient } from "@/lib/supabase/server"
-import type { Film, Accessory } from "@/lib/types"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { MoreHorizontal, PlusCircle, AlertTriangle } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import Link from "next/link"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { createClient } from "@/lib/supabase/server"
 import { DeleteInventoryItemButton } from "@/components/delete-inventory-item-button"
 import { StockAdjustmentButton } from "@/components/stock-adjustment-button"
 import { InventoryHistoryTab } from "@/components/inventory-history-tab"
 
-// Označit stránku jako dynamickou
 export const dynamic = "force-dynamic"
 
-export default async function InventoryPage() {
+async function FilmsTable() {
   const supabase = await createClient()
 
-  let films: Film[] = []
-  let accessories: Accessory[] = []
-  let recentLogs: any[] = []
+  try {
+    const { data: films } = await supabase.from("films").select("*").order("name", { ascending: true })
+
+    if (!films) return <div>Žádné filmy nenalezeny</div>
+
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Název</TableHead>
+            <TableHead>Sklad</TableHead>
+            <TableHead>Cena</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>
+              <span className="sr-only">Akce</span>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {films.map((film) => (
+            <TableRow key={film.id}>
+              <TableCell className="font-medium">{film.name}</TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  {film.stock} ks
+                  {film.stock <= 5 && <AlertTriangle className="h-4 w-4 text-orange-500" />}
+                </div>
+              </TableCell>
+              <TableCell>{film.price ? `${film.price} Kč` : "N/A"}</TableCell>
+              <TableCell>
+                <Badge variant={film.stock > 0 ? "outline" : "secondary"}>
+                  {film.stock > 0 ? "Skladem" : "Vyprodáno"}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button aria-haspopup="true" size="icon" variant="ghost">
+                      <MoreHorizontal className="h-4 w-4" />
+                      <span className="sr-only">Toggle menu</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Akce</DropdownMenuLabel>
+                    <DropdownMenuItem asChild>
+                      <Link href={`/inventory/edit/film/${film.id}`}>Upravit</Link>
+                    </DropdownMenuItem>
+                    <StockAdjustmentButton
+                      itemType="film"
+                      itemId={film.id}
+                      itemName={film.name}
+                      currentStock={film.stock}
+                    />
+                    <DeleteInventoryItemButton tableName="films" itemId={film.id} itemName={film.name} />
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    )
+  } catch (error) {
+    console.error("Error loading films:", error)
+    return <div>Chyba při načítání filmů</div>
+  }
+}
+
+async function AccessoriesTable() {
+  const supabase = await createClient()
 
   try {
-    const { data: filmsData } = await supabase.from("films").select("*")
-    const { data: accessoriesData } = await supabase.from("accessories").select("*")
+    const { data: accessories } = await supabase.from("accessories").select("*").order("name", { ascending: true })
 
-    films = (filmsData as Film[]) || []
-    accessories = (accessoriesData as Accessory[]) || []
+    if (!accessories) return <div>Žádné příslušenství nenalezeno</div>
 
-    // Get recent stock changes for dashboard
-    const { data: recentLogsData } = await supabase
-      .from("inventory_logs")
-      .select("*")
-      .eq("change_type", "stock_change")
-      .order("created_at", { ascending: false })
-      .limit(5)
-
-    recentLogs = recentLogsData || []
-  } catch (error) {
-    console.error("Error fetching inventory data:", error)
-  }
-
-  const lowStockFilms = films.filter((f) => f.stock < f.low_stock_threshold)
-
-  return (
-    <div className="grid gap-4">
-      {lowStockFilms.length > 0 && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Nízký stav zásob!</AlertTitle>
-          <AlertDescription>
-            U {lowStockFilms.length} typů filmů dochází zásoby. Doplňte je co nejdříve. (
-            {lowStockFilms.map((f) => f.name).join(", ")})
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Recent Changes Widget */}
-      {recentLogs && recentLogs.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <History className="h-5 w-5" />
-              Nedávné změny skladu
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {recentLogs.slice(0, 3).map((log: any) => (
-                <div key={log.id} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    {log.change_amount > 0 ? (
-                      <TrendingUp className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <TrendingDown className="h-4 w-4 text-red-500" />
-                    )}
-                    <span className="font-medium">{log.item_name}</span>
-                    <span className="text-muted-foreground">
-                      {log.old_value} → {log.new_value} ks
-                    </span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(log.created_at).toLocaleDateString("cs-CZ")}
-                  </span>
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Název</TableHead>
+            <TableHead>Sklad</TableHead>
+            <TableHead>Cena</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>
+              <span className="sr-only">Akce</span>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {accessories.map((accessory) => (
+            <TableRow key={accessory.id}>
+              <TableCell className="font-medium">{accessory.name}</TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  {accessory.stock} ks
+                  {accessory.stock <= 5 && <AlertTriangle className="h-4 w-4 text-orange-500" />}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              </TableCell>
+              <TableCell>{accessory.price ? `${accessory.price} Kč` : "N/A"}</TableCell>
+              <TableCell>
+                <Badge variant={accessory.stock > 0 ? "outline" : "secondary"}>
+                  {accessory.stock > 0 ? "Skladem" : "Vyprodáno"}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button aria-haspopup="true" size="icon" variant="ghost">
+                      <MoreHorizontal className="h-4 w-4" />
+                      <span className="sr-only">Toggle menu</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Akce</DropdownMenuLabel>
+                    <DropdownMenuItem asChild>
+                      <Link href={`/inventory/edit/accessory/${accessory.id}`}>Upravit</Link>
+                    </DropdownMenuItem>
+                    <StockAdjustmentButton
+                      itemType="accessory"
+                      itemId={accessory.id}
+                      itemName={accessory.name}
+                      currentStock={accessory.stock}
+                    />
+                    <DeleteInventoryItemButton
+                      tableName="accessories"
+                      itemId={accessory.id}
+                      itemName={accessory.name}
+                    />
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    )
+  } catch (error) {
+    console.error("Error loading accessories:", error)
+    return <div>Chyba při načítání příslušenství</div>
+  }
+}
 
-      <Card>
-        <CardHeader className="flex flex-row items-center">
-          <div className="grid gap-2">
-            <CardTitle>Skladové hospodářství</CardTitle>
-            <CardDescription>Přehled filmů a příslušenství s historií změn.</CardDescription>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" className="ml-auto gap-1">
-                <PlusCircle className="h-3.5 w-3.5" />
-                Přidat položku
+export default function InventoryPage() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Sklad</h1>
+          <p className="text-muted-foreground">Správa filmů a příslušenství</p>
+        </div>
+      </div>
+
+      <Tabs defaultValue="films" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="films">Filmy</TabsTrigger>
+          <TabsTrigger value="accessories">Příslušenství</TabsTrigger>
+          <TabsTrigger value="history">Historie</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="films">
+          <Card>
+            <CardHeader className="flex flex-row items-center">
+              <div className="grid gap-2">
+                <CardTitle>Filmy</CardTitle>
+                <CardDescription>Správa filmů na skladě</CardDescription>
+              </div>
+              <Button asChild size="sm" className="ml-auto gap-1">
+                <Link href="/inventory/edit/film/new">
+                  <PlusCircle className="h-3.5 w-3.5" />
+                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">Přidat film</span>
+                </Link>
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild>
-                <Link href="/inventory/edit/film/new">Přidat film</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/inventory/edit/accessory/new">Přidat příslušenství</Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="films">
-            <TabsList>
-              <TabsTrigger value="films">Filmy</TabsTrigger>
-              <TabsTrigger value="accessories">Příslušenství</TabsTrigger>
-              <TabsTrigger value="history">Historie změn</TabsTrigger>
-            </TabsList>
+            </CardHeader>
+            <CardContent>
+              <Suspense fallback={<div>Načítání filmů...</div>}>
+                <FilmsTable />
+              </Suspense>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-            <TabsContent value="films" className="mt-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Název filmu</TableHead>
-                    <TableHead>Skladem</TableHead>
-                    <TableHead>Cena</TableHead>
-                    <TableHead>Snímků/balení</TableHead>
-                    <TableHead>
-                      <span className="sr-only">Akce</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {films.map((film) => (
-                    <TableRow
-                      key={film.id}
-                      className={film.stock < film.low_stock_threshold ? "bg-destructive/10" : ""}
-                    >
-                      <TableCell className="font-medium">
-                        <div>
-                          {film.name}
-                          {film.stock < film.low_stock_threshold && (
-                            <Badge variant="destructive" className="ml-2 text-xs">
-                              Nízký stav
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{film.stock} ks</TableCell>
-                      <TableCell>{film.price ? `${film.price.toLocaleString("cs-CZ")} Kč` : "—"}</TableCell>
-                      <TableCell>{film.shots_per_pack ? `${film.shots_per_pack} ks` : "—"}</TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button aria-haspopup="true" size="icon" variant="ghost">
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Otevřít menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                              <Link href={`/inventory/edit/film/${film.id}`}>Upravit</Link>
-                            </DropdownMenuItem>
-                            <StockAdjustmentButton
-                              itemId={film.id}
-                              itemName={film.name}
-                              itemType="film"
-                              currentStock={film.stock}
-                            />
-                            <DeleteInventoryItemButton
-                              itemId={film.id}
-                              itemName={film.name}
-                              itemType="film"
-                              tableName="films"
-                            />
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {films.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                        Žádné filmy nenalezeny.{" "}
-                        <Link href="/inventory/edit/film/new" className="text-primary hover:underline">
-                          Přidat první film
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TabsContent>
+        <TabsContent value="accessories">
+          <Card>
+            <CardHeader className="flex flex-row items-center">
+              <div className="grid gap-2">
+                <CardTitle>Příslušenství</CardTitle>
+                <CardDescription>Správa příslušenství na skladě</CardDescription>
+              </div>
+              <Button asChild size="sm" className="ml-auto gap-1">
+                <Link href="/inventory/edit/accessory/new">
+                  <PlusCircle className="h-3.5 w-3.5" />
+                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">Přidat příslušenství</span>
+                </Link>
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <Suspense fallback={<div>Načítání příslušenství...</div>}>
+                <AccessoriesTable />
+              </Suspense>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-            <TabsContent value="accessories" className="mt-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Název</TableHead>
-                    <TableHead>Skladem</TableHead>
-                    <TableHead>Cena</TableHead>
-                    <TableHead>Nákupní cena</TableHead>
-                    <TableHead>
-                      <span className="sr-only">Akce</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {accessories.map((acc) => (
-                    <TableRow key={acc.id}>
-                      <TableCell className="font-medium">{acc.name}</TableCell>
-                      <TableCell>{acc.stock} ks</TableCell>
-                      <TableCell>{acc.price ? `${acc.price.toLocaleString("cs-CZ")} Kč` : "—"}</TableCell>
-                      <TableCell>
-                        {acc.purchase_price ? `${acc.purchase_price.toLocaleString("cs-CZ")} Kč` : "—"}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button aria-haspopup="true" size="icon" variant="ghost">
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Otevřít menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                              <Link href={`/inventory/edit/accessory/${acc.id}`}>Upravit</Link>
-                            </DropdownMenuItem>
-                            <StockAdjustmentButton
-                              itemId={acc.id}
-                              itemName={acc.name}
-                              itemType="accessory"
-                              currentStock={acc.stock}
-                            />
-                            <DeleteInventoryItemButton
-                              itemId={acc.id}
-                              itemName={acc.name}
-                              itemType="accessory"
-                              tableName="accessories"
-                            />
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {accessories.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                        Žádné příslušenství nenalezeno.{" "}
-                        <Link href="/inventory/edit/accessory/new" className="text-primary hover:underline">
-                          Přidat první příslušenství
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TabsContent>
-
-            <TabsContent value="history" className="mt-4">
-              <InventoryHistoryTab />
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+        <TabsContent value="history">
+          <InventoryHistoryTab />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

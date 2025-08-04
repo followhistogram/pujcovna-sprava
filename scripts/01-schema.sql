@@ -1,98 +1,71 @@
--- Drop existing tables if they exist (in correct order due to foreign key constraints)
-DROP TABLE IF EXISTS serial_numbers CASCADE;
-DROP TABLE IF EXISTS pricing_tiers CASCADE;
-DROP TABLE IF EXISTS rentals CASCADE;
-DROP TABLE IF EXISTS cameras CASCADE;
-DROP TABLE IF EXISTS films CASCADE;
-DROP TABLE IF EXISTS categories CASCADE;
+-- Enable necessary extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Create categories table first (no dependencies)
-CREATE TABLE categories (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-    name TEXT NOT NULL UNIQUE
-);
-
--- Create films table (no dependencies)
-CREATE TABLE films (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-    name TEXT NOT NULL,
-    type TEXT NOT NULL, -- e.g., "Polaroid", "Instax Mini", "Instax Square", "Instax Wide"
-    stock INT DEFAULT 0 NOT NULL,
-    low_stock_threshold INT DEFAULT 10 NOT NULL
-);
-
--- Create cameras table (depends on categories and films)
-CREATE TABLE cameras (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-    name TEXT NOT NULL,
-    category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
-    status TEXT DEFAULT 'draft' NOT NULL CHECK (status IN ('draft', 'active')),
-    stock INT DEFAULT 0 NOT NULL,
-    deposit INT DEFAULT 0 NOT NULL,
+-- Create cameras table
+CREATE TABLE IF NOT EXISTS cameras (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    brand VARCHAR(100) NOT NULL,
+    model VARCHAR(100) NOT NULL,
+    serial_number VARCHAR(100) UNIQUE,
+    purchase_date DATE,
+    purchase_price DECIMAL(10,2),
+    daily_rate DECIMAL(10,2) NOT NULL,
+    status VARCHAR(50) DEFAULT 'available' CHECK (status IN ('available', 'rented', 'maintenance', 'retired')),
+    condition VARCHAR(50) DEFAULT 'excellent' CHECK (condition IN ('excellent', 'good', 'fair', 'poor')),
     description TEXT,
-    short_description TEXT,
-    images JSONB DEFAULT '[]'::jsonb,
-    film_id UUID REFERENCES films(id) ON DELETE SET NULL
+    image_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create pricing_tiers table (depends on cameras)
-CREATE TABLE pricing_tiers (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-    camera_id UUID REFERENCES cameras(id) ON DELETE CASCADE NOT NULL,
-    days_label TEXT NOT NULL, -- e.g., "1", "2", "5+"
-    price_per_day INT NOT NULL
+-- Create customers table
+CREATE TABLE IF NOT EXISTS customers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    phone VARCHAR(20),
+    address TEXT,
+    city VARCHAR(100),
+    postal_code VARCHAR(20),
+    country VARCHAR(100) DEFAULT 'Czech Republic',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create serial_numbers table (depends on cameras)
-CREATE TABLE serial_numbers (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-    camera_id UUID REFERENCES cameras(id) ON DELETE CASCADE NOT NULL,
-    serial_number TEXT NOT NULL
+-- Create reservations table
+CREATE TABLE IF NOT EXISTS reservations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
+    camera_id UUID REFERENCES cameras(id) ON DELETE CASCADE,
+    rental_start_date DATE NOT NULL,
+    rental_end_date DATE NOT NULL,
+    total_price DECIMAL(10,2) NOT NULL,
+    deposit DECIMAL(10,2) DEFAULT 0,
+    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'active', 'completed', 'cancelled')),
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- Create rentals table (depends on cameras)
-CREATE TABLE rentals (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
-    customer_name TEXT NOT NULL,
-    camera_id UUID REFERENCES cameras(id) ON DELETE SET NULL,
-    rental_start TIMESTAMPTZ NOT NULL,
-    rental_end TIMESTAMPTZ NOT NULL,
-    status TEXT DEFAULT 'confirmed' NOT NULL CHECK (status IN ('received', 'confirmed', 'ready_for_dispatch', 'active', 'returned', 'completed', 'canceled')),
-    deposit INT NOT NULL,
-    deposit_status TEXT DEFAULT 'received' NOT NULL CHECK (deposit_status IN ('received', 'returned')),
-    delivery_method TEXT CHECK (delivery_method IN ('personal', 'courier')),
-    total_price INT NOT NULL
-);
-
--- Enable Row Level Security on all tables
-ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
-ALTER TABLE films ENABLE ROW LEVEL SECURITY;
-ALTER TABLE cameras ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pricing_tiers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE serial_numbers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE rentals ENABLE ROW LEVEL SECURITY;
-
--- Create policies to allow public read access (adjust as needed for your security requirements)
-CREATE POLICY "Public categories access" ON categories FOR ALL USING (true);
-CREATE POLICY "Public films access" ON films FOR ALL USING (true);
-CREATE POLICY "Public cameras access" ON cameras FOR ALL USING (true);
-CREATE POLICY "Public pricing_tiers access" ON pricing_tiers FOR ALL USING (true);
-CREATE POLICY "Public serial_numbers access" ON serial_numbers FOR ALL USING (true);
-CREATE POLICY "Public rentals access" ON rentals FOR ALL USING (true);
 
 -- Create indexes for better performance
-CREATE INDEX idx_cameras_category_id ON cameras(category_id);
-CREATE INDEX idx_cameras_film_id ON cameras(film_id);
-CREATE INDEX idx_cameras_status ON cameras(status);
-CREATE INDEX idx_pricing_tiers_camera_id ON pricing_tiers(camera_id);
-CREATE INDEX idx_serial_numbers_camera_id ON serial_numbers(camera_id);
-CREATE INDEX idx_rentals_camera_id ON rentals(camera_id);
-CREATE INDEX idx_rentals_status ON rentals(status);
-CREATE INDEX idx_rentals_rental_start ON rentals(rental_start);
-CREATE INDEX idx_rentals_rental_end ON rentals(rental_end);
+CREATE INDEX IF NOT EXISTS idx_cameras_status ON cameras(status);
+CREATE INDEX IF NOT EXISTS idx_cameras_brand_model ON cameras(brand, model);
+CREATE INDEX IF NOT EXISTS idx_reservations_dates ON reservations(rental_start_date, rental_end_date);
+CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);
+CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
+
+-- Create updated_at trigger function
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Create triggers for updated_at
+CREATE TRIGGER update_cameras_updated_at BEFORE UPDATE ON cameras FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_customers_updated_at BEFORE UPDATE ON customers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_reservations_updated_at BEFORE UPDATE ON reservations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

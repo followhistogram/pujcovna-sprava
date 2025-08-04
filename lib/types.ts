@@ -1,67 +1,116 @@
-export interface Camera {
+export type PriceTier = {
+  id?: string
+  min_days: number
+  price_per_day: number
+}
+
+export type SerialNumber = {
+  id?: string
+  serial_number: string
+  status: "active" | "serviced" | "retired"
+}
+
+export type PackageItem = {
+  id?: string
+  name: string
+}
+
+export type Category = {
   id: string
   name: string
-  brand: string
-  model: string
-  description?: string
-  daily_rate: number
+}
+
+export type Film = {
+  id: string
+  name: string
+  type: "Polaroid" | "Instax Mini" | "Instax Square" | "Instax Wide"
+  stock: number
+  low_stock_threshold: number
+  description: string | null
+  shots_per_pack: number | null
+  price: number | null
+  purchase_price: number | null
+  images: string[] | null
+}
+
+export type Camera = {
+  id: string
+  created_at: string
+  name: string
+  category_id: string | null
+  status: "active" | "draft"
+  stock: number
   deposit: number
-  image_url?: string
-  is_available: boolean
-  created_at: string
-  updated_at: string
-  compatible_films?: string[]
+  description: string | null
+  short_description: string | null
+  images: string[] | null
+  package_contents: PackageItem[] | string | null
+  pricing_tiers: PriceTier[]
+  serial_numbers: SerialNumber[]
+  compatible_films?: Film[]
+  categories?: Category
 }
 
-export interface Film {
+export type CameraWithCategory = Camera & {
+  categories: { name: string } | null
+}
+
+export type Accessory = {
   id: string
   name: string
-  brand: string
-  type: string
-  format: string
-  exposures: number
-  price: number
-  stock_quantity: number
-  image_url?: string
-  created_at: string
-  updated_at: string
+  description: string | null
+  stock: number
+  price: number | null
+  purchase_price: number | null
+  images: string[] | null
 }
 
-export interface Accessory {
-  id: string
-  name: string
-  description?: string
-  price: number
-  stock_quantity: number
-  image_url?: string
-  created_at: string
-  updated_at: string
-}
+export type InventoryItem = Film | Accessory
 
-export interface Reservation {
+export type ReservationStatus =
+  | "new"
+  | "confirmed"
+  | "ready_for_dispatch"
+  | "active"
+  | "returned"
+  | "completed"
+  | "canceled"
+
+export type Reservation = {
   id: string
   short_id: string
-  customer_name: string
-  customer_email: string
-  customer_phone: string
-  rental_start_date: string
-  rental_end_date: string
-  status: "new" | "confirmed" | "ready_for_dispatch" | "active" | "returned" | "completed" | "canceled"
-  total_amount: number
-  deposit_total: number
-  notes?: string
   created_at: string
   updated_at: string
-  delivery_method: "pickup" | "shipping"
-  delivery_address?: string
-  shipping_cost?: number
-  invoice_url?: string
-  shipping_tracking_number?: string
-  shipping_tracking_url?: string
-  items?: ReservationItem[]
+  customer_name: string
+  customer_email: string | null
+  customer_phone: string | null
+  customer_address: {
+    street: string
+    city: string
+    zip: string
+  } | null
+  rental_start_date: string
+  rental_end_date: string
+  status: ReservationStatus
+  subtotal: number
+  deposit_total: number
+  total_price: number
+  amount_paid: number
+  delivery_method: "pickup" | "delivery" | null
+  payment_method: string | null // např. 'card', 'cash', 'bank_transfer'
+  customer_notes: string | null
+  internal_notes: string | null
+  invoice_id: number | null
+  invoice_number: string | null
+  invoice_url: string | null
+  shipment_id: number | null
+  shipment_tracking_number: string | null
+  shipment_label_url: string | null
+  shipping_outbound_url: string | null
+  shipping_return_url: string | null
 }
 
-export interface ReservationItem {
+export type ReservationItem = {
   id: string
   reservation_id: string
   item_id: string
@@ -69,61 +118,5 @@ export interface ReservationItem {
   name: string
   quantity: number
   unit_price: number
-  total_price: number
-}
-
-export interface PaymentTransaction {
-  id: string
-  reservation_id: string
-  amount: number
-  type: "payment" | "refund"
-  method: "cash" | "card" | "bank_transfer" | "other"
-  description?: string
-  created_at: string
-}
-
-export interface InventoryLog {
-  id: string
-  item_id: string
-  item_type: "film" | "accessory"
-  change_type: "adjustment" | "sale" | "return" | "damage" | "loss"
-  quantity_change: number
-  old_quantity: number
-  new_quantity: number
-  reason?: string
-  created_at: string
-}
-
-export interface EmailTemplate {
-  id: string
-  name: string
-  subject: string
-  content: string
-  variables: string[]
-  created_at: string
-  updated_at: string
-}
-
-export interface EmailLog {
-  id: string
-  reservation_id?: string
-  recipient_email: string
-  subject: string
-  content: string
-  status: "sent" | "failed"
-  error_message?: string
-  sent_at: string
-}
-
-export interface SMTPSettings {
-  id: string
-  host: string
-  port: number
-  username: string
-  password: string
-  from_email: string
-  from_name: string
-  use_tls: boolean
-  created_at: string
-  updated_at: string
+  deposit: number
 }

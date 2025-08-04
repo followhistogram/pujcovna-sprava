@@ -1,11 +1,10 @@
 "use client"
 
 import type React from "react"
-
-import { usePathname } from "next/navigation"
 import { ThemeProvider } from "@/components/theme-provider"
-import Header from "@/components/header"
 import { Toaster } from "@/components/ui/sonner"
+import Header from "@/components/header"
+import { usePathname } from "next/navigation"
 
 export default function ClientLayout({
   children,
@@ -21,7 +20,7 @@ export default function ClientLayout({
         {!isLoginPage && <Header />}
         <main className={isLoginPage ? "" : "container mx-auto px-4 py-6"}>{children}</main>
       </div>
-      <Toaster />
+      <Toaster position="top-right" />
     </ThemeProvider>
   )
 }

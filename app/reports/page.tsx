@@ -20,6 +20,11 @@ import {
 const COLORS = ["#ff7a03", "#ff9c4a", "#ffb67a", "#ffd0aa", "#ffeadd"]
 
 export default function ReportsPage() {
+  const handleExport = () => {
+    // Implementace exportu do CSV
+    console.log("Exportuji data do CSV...")
+  }
+
   return (
     <div className="grid gap-4">
       <Card>
@@ -28,11 +33,9 @@ export default function ReportsPage() {
             <CardTitle>Reporty a statistiky</CardTitle>
             <CardDescription>Finanční přehledy a statistiky vytíženosti.</CardDescription>
           </div>
-          <Button asChild size="sm" variant="outline" className="ml-auto gap-1 bg-transparent">
-            <a href="#">
-              <Download className="h-3.5 w-3.5" />
-              Exportovat vše (CSV)
-            </a>
+          <Button size="sm" variant="outline" className="ml-auto gap-1 bg-transparent" onClick={handleExport}>
+            <Download className="h-3.5 w-3.5" />
+            Exportovat vše (CSV)
           </Button>
         </CardHeader>
       </Card>
@@ -40,7 +43,7 @@ export default function ReportsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Finanční přehled</CardTitle>
-            <CardDescription>Měsíční tržby, kauce a zálohy.</CardDescription>
+            <CardDescription>Měsíční tržby za posledních 6 měsíců.</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -51,9 +54,12 @@ export default function ReportsPage() {
                   fontSize={12}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(value) => `${value / 1000}k`}
+                  tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
                 />
-                <RechartsTooltip formatter={(value: number) => `${value.toLocaleString("cs-CZ")} Kč`} />
+                <RechartsTooltip
+                  formatter={(value: number) => [`${value.toLocaleString("cs-CZ")} Kč`, "Tržby"]}
+                  labelFormatter={(label) => `Měsíc: ${label}`}
+                />
                 <Legend />
                 <Bar dataKey="revenue" name="Tržby" fill="#ff7a03" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -83,7 +89,7 @@ export default function ReportsPage() {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <RechartsTooltip formatter={(value: number) => `${value} výpůjček`} />
+                <RechartsTooltip formatter={(value: number) => [`${value} výpůjček`, "Počet"]} />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
