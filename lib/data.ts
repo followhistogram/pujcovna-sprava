@@ -1,10 +1,31 @@
 import { createClient } from "@/lib/supabase/server"
-import type { Reservation, ReservationItem } from "@/lib/types"
+import type { Reservation, Camera, Film, Accessory, ReservationItem } from "@/lib/types"
 
-export async function fetchReservationById(id: string): Promise<(Reservation & { items: ReservationItem[] }) | null> {
+export async function fetchReservations(): Promise<Reservation[]> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from("reservations")
+    .select(`
+      *,
+      items:reservation_items(*)
+    `)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching reservations:", error)
+    return []
+  }
+
+  return data || []
+}
+
+export async function fetchReservationById(
+  id: string,
+): Promise<(Reservation & { items: ReservationItem[]; transactions: any[] }) | null> {
+  const supabase = await createClient()
+
   try {
-    const supabase = await createClient()
-
     const { data: reservation, error: reservationError } = await supabase
       .from("reservations")
       .select("*")
@@ -23,7 +44,6 @@ export async function fetchReservationById(id: string): Promise<(Reservation & {
 
     if (itemsError) {
       console.error("Error fetching reservation items:", itemsError)
-      return { ...reservation, items: [] }
     }
 
     const { data: transactions, error: transactionsError } = await supabase
@@ -47,83 +67,110 @@ export async function fetchReservationById(id: string): Promise<(Reservation & {
   }
 }
 
-export async function fetchDashboardStats() {
-  try {
-    const supabase = await createClient()
+export async function fetchCameras(): Promise<Camera[]> {
+  const supabase = await createClient()
 
+  const { data, error } = await supabase.from("cameras").select("*").eq("status", "active").order("name")
+
+  if (error) {
+    console.error("Error fetching cameras:", error)
+    return []
+  }
+
+  return data || []
+}
+
+export async function fetchFilms(): Promise<Film[]> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase.from("films").select("*").gt("stock", 0).order("name")
+
+  if (error) {
+    console.error("Error fetching films:", error)
+    return []
+  }
+
+  return data || []
+}
+
+export async function fetchAccessories(): Promise<Accessory[]> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase.from("accessories").select("*").gt("stock", 0).order("name")
+
+  if (error) {
+    console.error("Error fetching accessories:", error)
+    return []
+  }
+
+  return data || []
+}
+
+export async function fetchDashboardStats() {
+  const supabase = await createClient()
+
+  try {
     const { data: reservations, error: reservationsError } = await supabase
       .from("reservations")
-      .select("status, total_price, amount_paid")
+      .select("status, total_price, created_at")
 
-    if (reservationsError) {
-      console.error("Error fetching reservations:", reservationsError)
-      return {
-        totalReservations: 0,
-        activeReservations: 0,
-        totalRevenue: 0,
-        pendingPayments: 0,
-      }
-    }
+    if (reservationsError) throw reservationsError
 
-    const totalReservations = reservations.length
-    const activeReservations = reservations.filter((r) =>
-      ["confirmed", "ready_for_dispatch", "active"].includes(r.status),
-    ).length
-    const totalRevenue = reservations.reduce((sum, r) => sum + (r.amount_paid || 0), 0)
-    const pendingPayments = reservations.reduce(
-      (sum, r) => sum + Math.max(0, (r.total_price || 0) - (r.amount_paid || 0)),
-      0,
-    )
+    const { data: cameras, error: camerasError } = await supabase.from("cameras").select("id, status")
+
+    if (camerasError) throw camerasError
+
+    const totalReservations = reservations?.length || 0
+    const activeReservations = reservations?.filter((r) => r.status === "active").length || 0
+    const totalRevenue = reservations?.reduce((sum, r) => sum + (r.total_price || 0), 0) || 0
+    const availableCameras = cameras?.filter((c) => c.status === "active").length || 0
 
     return {
       totalReservations,
       activeReservations,
       totalRevenue,
-      pendingPayments,
+      availableCameras,
     }
   } catch (error) {
-    console.error("Error in fetchDashboardStats:", error)
+    console.error("Error fetching dashboard stats:", error)
     return {
       totalReservations: 0,
       activeReservations: 0,
       totalRevenue: 0,
-      pendingPayments: 0,
+      availableCameras: 0,
     }
   }
 }
 
 export async function fetchTimelineData() {
-  try {
-    const supabase = await createClient()
+  const supabase = await createClient()
 
-    const { data: reservations, error: reservationsError } = await supabase
+  try {
+    const { data: reservations, error } = await supabase
       .from("reservations")
       .select(`
-        *,
-        items:reservation_items(*)
+        id,
+        short_id,
+        customer_name,
+        rental_start_date,
+        rental_end_date,
+        status,
+        items:reservation_items(
+          item_id,
+          item_type,
+          name,
+          quantity
+        )
       `)
-      .in("status", ["confirmed", "ready_for_dispatch", "active", "returned"])
-      .order("rental_start_date", { ascending: true })
+      .in("status", ["confirmed", "ready_for_dispatch", "active"])
+      .order("rental_start_date")
 
-    if (reservationsError) {
-      console.error("Error fetching reservations:", reservationsError)
-      return { reservations: [], cameras: [] }
-    }
+    if (error) throw error
 
-    const { data: cameras, error: camerasError } = await supabase.from("cameras").select("*").eq("status", "active")
-
-    if (camerasError) {
-      console.error("Error fetching cameras:", camerasError)
-      return { reservations: reservations || [], cameras: [] }
-    }
-
-    return {
-      reservations: reservations || [],
-      cameras: cameras || [],
-    }
+    return reservations || []
   } catch (error) {
-    console.error("Error in fetchTimelineData:", error)
-    return { reservations: [], cameras: [] }
+    console.error("Error fetching timeline data:", error)
+    return []
   }
 }
 
@@ -131,7 +178,6 @@ export function formatCurrency(amount: number | null | undefined): string {
   if (amount === null || amount === undefined) {
     return "0 Kč"
   }
-
   return new Intl.NumberFormat("cs-CZ", {
     style: "currency",
     currency: "CZK",

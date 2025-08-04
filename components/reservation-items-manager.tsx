@@ -1,4 +1,5 @@
 "use client"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -16,8 +17,8 @@ import {
 import { useState } from "react"
 
 type ReservationItemsManagerProps = {
-  items: Partial<ReservationItem>[]
-  setItems: (items: Partial<ReservationItem>[]) => void
+  items: ReservationItem[]
+  setItems: (items: ReservationItem[]) => void
   availableCameras?: Camera[]
   availableFilms?: Film[]
   availableAccessories?: Accessory[]
@@ -25,7 +26,7 @@ type ReservationItemsManagerProps = {
 }
 
 export function ReservationItemsManager({
-  items,
+  items = [], // Default to empty array to prevent undefined errors
   setItems,
   availableCameras = [],
   availableFilms = [],
@@ -55,7 +56,9 @@ export function ReservationItemsManager({
 
     const price = getCameraPrice(camera, rentalDays)
 
-    const newItem: Partial<ReservationItem> = {
+    const newItem: ReservationItem = {
+      id: `temp-${Date.now()}`,
+      reservation_id: "",
       item_id: camera.id,
       item_type: "camera",
       name: camera.name,
@@ -75,7 +78,9 @@ export function ReservationItemsManager({
     if (existingFilm) {
       updateItemQuantity(items.indexOf(existingFilm), (existingFilm.quantity || 0) + 1)
     } else {
-      const newItem: Partial<ReservationItem> = {
+      const newItem: ReservationItem = {
+        id: `temp-${Date.now()}`,
+        reservation_id: "",
         item_id: film.id,
         item_type: "film",
         name: film.name,
@@ -96,7 +101,9 @@ export function ReservationItemsManager({
     if (existingAccessory) {
       updateItemQuantity(items.indexOf(existingAccessory), (existingAccessory.quantity || 0) + 1)
     } else {
-      const newItem: Partial<ReservationItem> = {
+      const newItem: ReservationItem = {
+        id: `temp-${Date.now()}`,
+        reservation_id: "",
         item_id: accessory.id,
         item_type: "accessory",
         name: accessory.name,
@@ -148,7 +155,7 @@ export function ReservationItemsManager({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {items.length > 0 ? (
+            {items && items.length > 0 ? (
               items.map((item, index) => {
                 const itemKey = `${item.item_type}-${item.item_id}-${index}`
                 const isChecked = checkedItems.has(itemKey)
@@ -177,21 +184,23 @@ export function ReservationItemsManager({
                             {availableFilms.find((f) => f.id === item.item_id)?.shots_per_pack} snímků/balení
                           </div>
                         )}
-                        {item.item_type === "camera" && packageContents.length > 0 && (
-                          <div className="text-xs text-muted-foreground">
-                            <div className="font-medium">Součást balení:</div>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {packageContents.map((pkg: any, pkgIndex: number) => (
-                                <span
-                                  key={pkgIndex}
-                                  className="inline-block px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs"
-                                >
-                                  {pkg.name}
-                                </span>
-                              ))}
+                        {item.item_type === "camera" &&
+                          Array.isArray(packageContents) &&
+                          packageContents.length > 0 && (
+                            <div className="text-xs text-muted-foreground">
+                              <div className="font-medium">Součást balení:</div>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {packageContents.map((pkg: any, pkgIndex: number) => (
+                                  <span
+                                    key={pkgIndex}
+                                    className="inline-block px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs"
+                                  >
+                                    {pkg.name}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -229,7 +238,7 @@ export function ReservationItemsManager({
         </Table>
 
         {/* Progress indicator */}
-        {items.length > 0 && (
+        {items && items.length > 0 && (
           <div className="mt-4 p-3 bg-muted/50 rounded-lg">
             <div className="flex items-center justify-between text-sm">
               <span>Připraveno:</span>

@@ -1,18 +1,18 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Mail, Clock, CheckCircle, XCircle } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Mail, ExternalLink } from "lucide-react"
 import { format } from "date-fns"
-import { cs } from "date-fns/locale"
 
 interface EmailLog {
   id: string
-  template_name: string
+  created_at: string
+  email_type: string
   recipient: string
   subject: string
   status: "sent" | "failed" | "pending"
-  sent_at: string
   error_message?: string
 }
 
@@ -21,45 +21,42 @@ interface EmailLogsCardProps {
   logs: EmailLog[]
 }
 
-export function EmailLogsCard({ reservationId, logs }: EmailLogsCardProps) {
-  const getStatusIcon = (status: string) => {
+export function EmailLogsCard({ reservationId, logs = [] }: EmailLogsCardProps) {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case "sent":
-        return <CheckCircle className="h-4 w-4 text-green-500" />
+        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
       case "failed":
-        return <XCircle className="h-4 w-4 text-red-500" />
+        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
       case "pending":
-        return <Clock className="h-4 w-4 text-yellow-500" />
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
       default:
-        return <Mail className="h-4 w-4" />
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
     }
   }
 
-  const getStatusBadge = (status: string) => {
+  const getStatusText = (status: string) => {
     switch (status) {
       case "sent":
-        return (
-          <Badge variant="default" className="bg-green-100 text-green-800">
-            Odesláno
-          </Badge>
-        )
+        return "Odesláno"
       case "failed":
-        return <Badge variant="destructive">Chyba</Badge>
+        return "Chyba"
       case "pending":
-        return <Badge variant="secondary">Čeká</Badge>
+        return "Čeká"
       default:
-        return <Badge variant="outline">{status}</Badge>
+        return status
     }
   }
 
-  const getTemplateName = (templateName: string) => {
-    const templates = {
-      reservation_confirmation: "Potvrzení rezervace",
-      payment_reminder: "Připomínka platby",
-      dispatch_notification: "Oznámení o expedici",
+  const getEmailTypeText = (type: string) => {
+    const types: Record<string, string> = {
+      confirmation: "Potvrzení rezervace",
+      reminder: "Připomínka",
+      invoice: "Faktura",
+      shipping: "Informace o dopravě",
       return_reminder: "Připomínka vrácení",
     }
-    return templates[templateName as keyof typeof templates] || templateName
+    return types[type] || type
   }
 
   return (
@@ -69,34 +66,38 @@ export function EmailLogsCard({ reservationId, logs }: EmailLogsCardProps) {
           <Mail className="h-5 w-5" />
           Historie e-mailů
         </CardTitle>
+        <CardDescription>Přehled odeslaných e-mailů pro tuto rezervaci</CardDescription>
       </CardHeader>
       <CardContent>
-        {logs.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Mail className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Zatím nebyly odeslány žádné e-maily</p>
-          </div>
-        ) : (
+        {logs.length > 0 ? (
           <div className="space-y-4">
             {logs.map((log) => (
-              <div key={log.id} className="flex items-start gap-3 p-3 border rounded-lg">
-                <div className="mt-1">{getStatusIcon(log.status)}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <h4 className="font-medium truncate">{getTemplateName(log.template_name)}</h4>
-                    {getStatusBadge(log.status)}
+              <div key={log.id} className="flex items-start justify-between p-3 border rounded-lg">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{getEmailTypeText(log.email_type)}</span>
+                    <Badge className={getStatusColor(log.status)}>{getStatusText(log.status)}</Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-1">Příjemce: {log.recipient}</p>
-                  <p className="text-sm text-muted-foreground mb-2">Předmět: {log.subject}</p>
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(log.sent_at), "d. M. yyyy HH:mm", { locale: cs })}
-                    </p>
+                  <div className="text-sm text-muted-foreground">Příjemce: {log.recipient}</div>
+                  <div className="text-sm text-muted-foreground">Předmět: {log.subject}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {format(new Date(log.created_at), "d. M. yyyy HH:mm")}
                   </div>
-                  {log.error_message && <p className="text-xs text-red-600 mt-1">Chyba: {log.error_message}</p>}
+                  {log.error_message && (
+                    <div className="text-xs text-red-600 dark:text-red-400">Chyba: {log.error_message}</div>
+                  )}
                 </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <ExternalLink className="h-3 w-3" />
+                </Button>
               </div>
             ))}
+          </div>
+        ) : (
+          <div className="text-center text-muted-foreground py-8">
+            <Mail className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>Zatím nebyly odeslány žádné e-maily</p>
+            <p className="text-sm">E-maily se zobrazí po jejich odeslání</p>
           </div>
         )}
       </CardContent>

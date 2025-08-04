@@ -171,132 +171,229 @@ export async function saveReservation(prevState: any, formData: FormData) {
   }
 }
 
-export async function updateReservationStatus(formData: FormData) {
+export async function updateReservationStatus(reservationId: string, status: ReservationStatus) {
   try {
     const supabase = await createClient()
-
-    const reservationId = formData.get("reservationId") as string
-    const status = formData.get("status") as ReservationStatus
-
-    const validatedData = updateReservationStatusSchema.parse({
-      reservationId,
-      status,
-    })
 
     const { error } = await supabase
       .from("reservations")
       .update({
-        status: validatedData.status,
+        status,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", validatedData.reservationId)
+      .eq("id", reservationId)
 
     if (error) {
-      console.error("Error updating reservation status:", error)
-      return { success: false, error: "Nepodařilo se aktualizovat stav rezervace" }
+      console.error("Update status error:", error)
+      return { success: false, error: error.message }
     }
 
-    revalidatePath(`/reservations/${validatedData.reservationId}`)
-    return { success: true, message: "Stav rezervace byl úspěšně aktualizován" }
+    revalidatePath(`/reservations/${reservationId}`)
+    return { success: true }
   } catch (error) {
     console.error("Update status error:", error)
-    return { success: false, error: "Došlo k neočekávané chybě" }
+    return { success: false, error: "Nepodařilo se aktualizovat stav rezervace" }
   }
 }
 
-export async function updateCustomerInfo(prevState: any, formData: FormData) {
+export async function updateCustomerInfo(
+  reservationId: string,
+  data: {
+    customer_name: string
+    customer_email: string
+    customer_phone: string
+    customer_address: any
+  },
+) {
   try {
     const supabase = await createClient()
-
-    const reservationId = formData.get("reservationId") as string
-    const customer_name = formData.get("customer_name") as string
-    const customer_email = formData.get("customer_email") as string
-    const customer_phone = formData.get("customer_phone") as string
-    const street = formData.get("street") as string
-    const city = formData.get("city") as string
-    const zip = formData.get("zip") as string
-
-    const validatedData = updateCustomerInfoSchema.parse({
-      reservationId,
-      customer_name,
-      customer_email: customer_email || undefined,
-      customer_phone: customer_phone || undefined,
-      customer_address: {
-        street: street || undefined,
-        city: city || undefined,
-        zip: zip || undefined,
-      },
-    })
 
     const { error } = await supabase
       .from("reservations")
       .update({
-        customer_name: validatedData.customer_name,
-        customer_email: validatedData.customer_email,
-        customer_phone: validatedData.customer_phone,
-        customer_address: validatedData.customer_address,
+        ...data,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", validatedData.reservationId)
+      .eq("id", reservationId)
 
     if (error) {
-      console.error("Error updating customer info:", error)
-      return { success: false, error: "Nepodařilo se aktualizovat údaje zákazníka" }
+      console.error("Update customer error:", error)
+      return { success: false, error: error.message }
     }
 
-    revalidatePath(`/reservations/${validatedData.reservationId}`)
-    return { success: true, message: "Údaje zákazníka byly úspěšně aktualizovány" }
+    revalidatePath(`/reservations/${reservationId}`)
+    return { success: true }
   } catch (error) {
-    console.error("Update customer info error:", error)
-    return { success: false, error: "Došlo k neočekávané chybě" }
+    console.error("Update customer error:", error)
+    return { success: false, error: "Nepodařilo se aktualizovat údaje zákazníka" }
   }
 }
 
-export async function updateReservationDetails(formData: FormData) {
+export async function updateReservationDetails(
+  reservationId: string,
+  data: {
+    rental_start_date: string
+    rental_end_date: string
+    delivery_method: string
+    payment_method: string
+    customer_notes: string
+    internal_notes: string
+  },
+) {
   try {
     const supabase = await createClient()
-
-    const reservationId = formData.get("reservationId") as string
-    const rental_start_date = formData.get("rental_start_date") as string
-    const rental_end_date = formData.get("rental_end_date") as string
-    const delivery_method = formData.get("delivery_method") as string
-    const payment_method = formData.get("payment_method") as string
-    const customer_notes = formData.get("customer_notes") as string
-    const internal_notes = formData.get("internal_notes") as string
-
-    const validatedData = updateReservationDetailsSchema.parse({
-      reservationId,
-      rental_start_date,
-      rental_end_date,
-      delivery_method: delivery_method || undefined,
-      payment_method: payment_method || undefined,
-      customer_notes: customer_notes || undefined,
-      internal_notes: internal_notes || undefined,
-    })
 
     const { error } = await supabase
       .from("reservations")
       .update({
-        rental_start_date: validatedData.rental_start_date,
-        rental_end_date: validatedData.rental_end_date,
-        delivery_method: validatedData.delivery_method,
-        payment_method: validatedData.payment_method,
-        customer_notes: validatedData.customer_notes,
-        internal_notes: validatedData.internal_notes,
+        ...data,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", validatedData.reservationId)
+      .eq("id", reservationId)
 
     if (error) {
-      console.error("Error updating reservation details:", error)
-      return { success: false, error: "Nepodařilo se aktualizovat detaily rezervace" }
+      console.error("Update reservation details error:", error)
+      return { success: false, error: error.message }
     }
 
-    revalidatePath(`/reservations/${validatedData.reservationId}`)
-    return { success: true, message: "Detaily rezervace byly úspěšně aktualizovány" }
+    revalidatePath(`/reservations/${reservationId}`)
+    return { success: true }
   } catch (error) {
     console.error("Update reservation details error:", error)
-    return { success: false, error: "Došlo k neočekávané chybě" }
+    return { success: false, error: "Nepodařilo se aktualizovat detaily rezervace" }
+  }
+}
+
+export async function addPaymentTransaction(
+  reservationId: string,
+  data: {
+    amount: number
+    type: string
+    method: string
+    description: string
+  },
+) {
+  try {
+    const supabase = await createClient()
+
+    const { error } = await supabase.from("payment_transactions").insert({
+      reservation_id: reservationId,
+      ...data,
+      created_at: new Date().toISOString(),
+    })
+
+    if (error) {
+      console.error("Add payment error:", error)
+      return { success: false, error: error.message }
+    }
+
+    // Update reservation amount_paid
+    const { data: transactions } = await supabase
+      .from("payment_transactions")
+      .select("amount, type")
+      .eq("id", reservationId)
+
+    if (transactions) {
+      const totalPaid = transactions.reduce((sum, t) => {
+        return t.type === "payment" ? sum + t.amount : sum - t.amount
+      }, 0)
+
+      await supabase.from("reservations").update({ amount_paid: totalPaid }).eq("id", reservationId)
+    }
+
+    revalidatePath(`/reservations/${reservationId}`)
+    return { success: true }
+  } catch (error) {
+    console.error("Add payment error:", error)
+    return { success: false, error: "Nepodařilo se přidat platbu" }
+  }
+}
+
+export async function deletePaymentTransaction(transactionId: string, reservationId: string) {
+  const supabase = await createClient()
+
+  try {
+    const { error } = await supabase.from("payment_transactions").delete().eq("id", transactionId)
+
+    if (error) {
+      console.error("Error deleting payment transaction:", error)
+      return {
+        success: false,
+        message: "Chyba při mazání transakce",
+      }
+    }
+
+    revalidatePath(`/reservations/${reservationId}`)
+    return {
+      success: true,
+      message: "Transakce byla úspěšně smazána",
+    }
+  } catch (error) {
+    console.error("Error in deletePaymentTransaction:", error)
+    return {
+      success: false,
+      message: "Došlo k neočekávané chybě",
+    }
+  }
+}
+
+export async function getPaymentTransactions(reservationId: string) {
+  try {
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+      .from("payment_transactions")
+      .select("*")
+      .eq("reservation_id", reservationId)
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error("Error fetching payment transactions:", error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, data }
+  } catch (error) {
+    console.error("Error fetching payment transactions:", error)
+    return { success: false, error: "Nepodařilo se načíst platby" }
+  }
+}
+
+export async function getReservation(reservationId: string) {
+  const supabase = await createClient()
+
+  try {
+    const { data: reservation, error: reservationError } = await supabase
+      .from("reservations")
+      .select("*")
+      .eq("id", reservationId)
+      .single()
+
+    if (reservationError) {
+      console.error("Error fetching reservation:", reservationError)
+      return { success: false, error: reservationError.message }
+    }
+
+    const { data: items, error: itemsError } = await supabase
+      .from("reservation_items")
+      .select("*")
+      .eq("reservation_id", reservationId)
+
+    if (itemsError) {
+      console.error("Error fetching reservation items:", itemsError)
+      return { success: false, error: itemsError.message }
+    }
+
+    return {
+      success: true,
+      data: {
+        ...reservation,
+        items: items || [],
+      },
+    }
+  } catch (error: any) {
+    console.error("Error fetching reservation:", error)
+    return { success: false, error: "Nepodařilo se načíst rezervaci" }
   }
 }
 
@@ -477,147 +574,5 @@ export async function orderShipping(reservationId: string) {
     console.error("Order shipping error:", error)
     const errorMessage = error.data?.errors?.base?.[0] || error.data?.message || error.message || "Neznámá chyba"
     return { success: false, message: `Chyba Zaslat.cz: ${errorMessage}` }
-  }
-}
-
-export async function addPaymentTransaction(prevState: any, formData: FormData) {
-  const supabase = await createClient()
-
-  try {
-    const reservationId = formData.get("reservationId") as string
-    const amount = Number.parseFloat(formData.get("amount") as string)
-    const paymentMethod = formData.get("paymentMethod") as string
-    const transactionType = formData.get("transactionType") as string
-    const description = formData.get("description") as string
-    const referenceNumber = formData.get("referenceNumber") as string
-    const notes = formData.get("notes") as string
-
-    if (!reservationId || !amount || !paymentMethod || !transactionType) {
-      return {
-        success: false,
-        message: "Všechna povinná pole musí být vyplněna",
-      }
-    }
-
-    const finalAmount = Math.round(amount)
-    const finalAmountAdjusted = transactionType === "refund" ? -finalAmount : finalAmount
-
-    const { error: transactionError } = await supabase.from("payment_transactions").insert({
-      reservation_id: reservationId,
-      amount: finalAmountAdjusted,
-      payment_method: paymentMethod,
-      transaction_type: transactionType,
-      description: description || null,
-      reference_number: referenceNumber || null,
-      notes: notes || null,
-    })
-
-    if (transactionError) {
-      console.error("Error inserting payment transaction:", transactionError)
-      return {
-        success: false,
-        message: "Chyba při ukládání transakce",
-      }
-    }
-
-    revalidatePath(`/reservations/${reservationId}`)
-    return {
-      success: true,
-      message: `${transactionType === "refund" ? "Refundace" : "Platba"} byla úspěšně zaznamenána`,
-    }
-  } catch (error) {
-    console.error("Error in addPaymentTransaction:", error)
-    return {
-      success: false,
-      message: "Došlo k neočekávané chybě",
-    }
-  }
-}
-
-export async function deletePaymentTransaction(transactionId: string, reservationId: string) {
-  const supabase = await createClient()
-
-  try {
-    const { error } = await supabase.from("payment_transactions").delete().eq("id", transactionId)
-
-    if (error) {
-      console.error("Error deleting payment transaction:", error)
-      return {
-        success: false,
-        message: "Chyba při mazání transakce",
-      }
-    }
-
-    revalidatePath(`/reservations/${reservationId}`)
-    return {
-      success: true,
-      message: "Transakce byla úspěšně smazána",
-    }
-  } catch (error) {
-    console.error("Error in deletePaymentTransaction:", error)
-    return {
-      success: false,
-      message: "Došlo k neočekávané chybě",
-    }
-  }
-}
-
-export async function getPaymentTransactions(reservationId: string) {
-  try {
-    const supabase = await createClient()
-
-    const { data, error } = await supabase
-      .from("payment_transactions")
-      .select("*")
-      .eq("reservation_id", reservationId)
-      .order("created_at", { ascending: false })
-
-    if (error) {
-      console.error("Error fetching payment transactions:", error)
-      return { success: false, error: error.message }
-    }
-
-    return { success: true, data }
-  } catch (error) {
-    console.error("Error fetching payment transactions:", error)
-    return { success: false, error: "Nepodařilo se načíst platby" }
-  }
-}
-
-export async function getReservation(reservationId: string) {
-  const supabase = await createClient()
-
-  try {
-    const { data: reservation, error: reservationError } = await supabase
-      .from("reservations")
-      .select("*")
-      .eq("id", reservationId)
-      .single()
-
-    if (reservationError) {
-      console.error("Error fetching reservation:", reservationError)
-      return { success: false, error: reservationError.message }
-    }
-
-    const { data: items, error: itemsError } = await supabase
-      .from("reservation_items")
-      .select("*")
-      .eq("reservation_id", reservationId)
-
-    if (itemsError) {
-      console.error("Error fetching reservation items:", itemsError)
-      return { success: false, error: itemsError.message }
-    }
-
-    return {
-      success: true,
-      data: {
-        ...reservation,
-        items: items || [],
-      },
-    }
-  } catch (error: any) {
-    console.error("Error fetching reservation:", error)
-    return { success: false, error: "Nepodařilo se načíst rezervaci" }
   }
 }
