@@ -15,9 +15,8 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal, PlusCircle, ImageIcon } from "lucide-react"
+import { MoreHorizontal, PlusCircle } from "lucide-react"
 import Link from "next/link"
-import Image from "next/image"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,12 +28,15 @@ import { createClient } from "@/lib/supabase/server"
 import type { CameraWithCategory } from "@/lib/types"
 import { DeleteCameraButton } from "@/components/delete-camera-button"
 import { DuplicateCameraButton } from "@/components/duplicate-camera-button"
+import { ImageWithFallback } from "@/components/ImageWithFallback"
 
 export default async function CamerasPage() {
   const supabase = await createClient()
 
   let cameras: CameraWithCategory[] = []
   let error: string | null = null
+
+  /* ---------- DATA FETCH ---------- */
 
   try {
     const { data, error: fetchError } = await supabase
@@ -91,11 +93,8 @@ export default async function CamerasPage() {
     <div className="flex items-center justify-between">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Fotoaparáty</h1>
-        <p className="text-muted-foreground">
-          Správa fotoaparátů v půjčovně
-        </p>
+        <p className="text-muted-foreground">Správa fotoaparátů v půjčovně</p>
       </div>
-      {/* Tlačítko přidat se zobrazuje jen pokud není chyba */}
       {!error && (
         <Button asChild>
           <Link href="/cameras/edit/new">
@@ -108,6 +107,7 @@ export default async function CamerasPage() {
   )
 
   /* ---------- CHYBOVÁ VĚTEV ---------- */
+
   if (error) {
     return (
       <div className="space-y-6">
@@ -132,12 +132,12 @@ export default async function CamerasPage() {
   }
 
   /* ---------- ÚSPĚŠNÁ VĚTEV ---------- */
+
   return (
     <div className="space-y-6">
       <PageHeader />
 
       <Card>
-        {/* CardHeader odstraněn, aby se nadpis neduplikoval */}
         <CardContent>
           {cameras.length === 0 ? (
             <div className="py-8 text-center">
@@ -170,6 +170,7 @@ export default async function CamerasPage() {
                   </TableHead>
                 </TableRow>
               </TableHeader>
+
               <TableBody>
                 {cameras.map((camera) => {
                   const imageUrl = getFirstValidImage(camera)
@@ -178,29 +179,11 @@ export default async function CamerasPage() {
                     <TableRow key={camera.id}>
                       <TableCell className="hidden sm:table-cell">
                         <div className="relative h-16 w-16">
-                          {imageUrl && (
-                            <Image
-                              alt={camera.name}
-                              className="aspect-square rounded-md object-cover"
-                              height={64}
-                              width={64}
-                              src={imageUrl}
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement
-                                target.style.display = "none"
-                                target.parentElement
-                                  ?.querySelector(".fallback-icon")
-                                  ?.classList.remove("hidden")
-                              }}
-                            />
-                          )}
-                          <div
-                            className={`fallback-icon absolute inset-0 flex items-center justify-center rounded-md bg-muted ${
-                              imageUrl ? "hidden" : ""
-                            }`}
-                          >
-                            <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                          </div>
+                          <ImageWithFallback
+                            src={imageUrl ?? ""}
+                            alt={camera.name}
+                            className="aspect-square rounded-md object-cover"
+                          />
                         </div>
                       </TableCell>
 
