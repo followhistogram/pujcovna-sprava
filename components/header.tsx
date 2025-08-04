@@ -36,8 +36,10 @@ export default function Header() {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex items-center space-x-2 transition-colors hover:text-foreground/80",
-                    pathname === item.href ? "text-foreground" : "text-foreground/60",
+                    "flex items-center space-x-2 text-sm font-medium transition-colors hover:text-foreground/80",
+                    pathname === item.href
+                      ? "text-foreground"
+                      : "text-foreground/60"
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -48,15 +50,8 @@ export default function Header() {
           </nav>
         </div>
         <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
-          <div className="w-full flex-1 md:w-auto md:flex-none">{/* Mobile menu can be added here */}</div>
-          <nav className="flex items-center space-x-2">
-            <ModeToggle />
-            <form action={logout}>
-              <Button variant="ghost" size="sm" type="submit">
-                Odhlásit se
-              </Button>
-            </form>
-          </nav>
+          <ModeToggle />
+          {/* Možná zde chybí logout tlačítko */}
         </div>
       </div>
     </header>
