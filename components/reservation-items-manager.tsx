@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Trash2 } from "lucide-react"
+import { Trash2, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import type { Camera, Film, ReservationItem, Accessory } from "@/lib/types"
 import {
@@ -17,21 +17,23 @@ import {
 import { useState } from "react"
 
 type ReservationItemsManagerProps = {
-  items: ReservationItem[]
-  setItems: (items: ReservationItem[]) => void
+  items: Partial<ReservationItem>[]
+  setItems: (items: Partial<ReservationItem>[]) => void
   availableCameras?: Camera[]
   availableFilms?: Film[]
   availableAccessories?: Accessory[]
   rentalDays?: number
+  isLoading?: boolean
 }
 
 export function ReservationItemsManager({
-  items = [], // Default to empty array to prevent undefined errors
+  items = [],
   setItems,
   availableCameras = [],
   availableFilms = [],
   availableAccessories = [],
   rentalDays = 1,
+  isLoading = false,
 }: ReservationItemsManagerProps) {
   const [showCameraModal, setShowCameraModal] = useState(false)
   const [showFilmModal, setShowFilmModal] = useState(false)
@@ -56,9 +58,7 @@ export function ReservationItemsManager({
 
     const price = getCameraPrice(camera, rentalDays)
 
-    const newItem: ReservationItem = {
-      id: `temp-${Date.now()}`,
-      reservation_id: "",
+    const newItem: Partial<ReservationItem> = {
       item_id: camera.id,
       item_type: "camera",
       name: camera.name,
@@ -78,9 +78,7 @@ export function ReservationItemsManager({
     if (existingFilm) {
       updateItemQuantity(items.indexOf(existingFilm), (existingFilm.quantity || 0) + 1)
     } else {
-      const newItem: ReservationItem = {
-        id: `temp-${Date.now()}`,
-        reservation_id: "",
+      const newItem: Partial<ReservationItem> = {
         item_id: film.id,
         item_type: "film",
         name: film.name,
@@ -101,9 +99,7 @@ export function ReservationItemsManager({
     if (existingAccessory) {
       updateItemQuantity(items.indexOf(existingAccessory), (existingAccessory.quantity || 0) + 1)
     } else {
-      const newItem: ReservationItem = {
-        id: `temp-${Date.now()}`,
-        reservation_id: "",
+      const newItem: Partial<ReservationItem> = {
         item_id: accessory.id,
         item_type: "accessory",
         name: accessory.name,
@@ -258,7 +254,8 @@ export function ReservationItemsManager({
       <CardContent className="border-t pt-4 grid grid-cols-1 md:grid-cols-3 gap-2">
         <Dialog open={showCameraModal} onOpenChange={setShowCameraModal}>
           <DialogTrigger asChild>
-            <Button variant="outline" className="bg-transparent">
+            <Button variant="outline" className="bg-transparent" disabled={isLoading}>
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Přidat fotoaparát
             </Button>
           </DialogTrigger>
@@ -292,9 +289,15 @@ export function ReservationItemsManager({
                   </Button>
                 )
               })}
-              {availableCameras.length === 0 && (
+              {availableCameras.length === 0 && !isLoading && (
                 <div className="text-center text-muted-foreground p-4">
                   Pro zadaný termín nejsou dostupné žádné fotoaparáty.
+                </div>
+              )}
+              {isLoading && (
+                <div className="text-center text-muted-foreground p-4">
+                  <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                  <p className="mt-2">Načítání fotoaparátů...</p>
                 </div>
               )}
             </div>
@@ -303,7 +306,8 @@ export function ReservationItemsManager({
 
         <Dialog open={showFilmModal} onOpenChange={setShowFilmModal}>
           <DialogTrigger asChild>
-            <Button variant="outline" className="bg-transparent">
+            <Button variant="outline" className="bg-transparent" disabled={isLoading}>
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Přidat film
             </Button>
           </DialogTrigger>
@@ -329,13 +333,23 @@ export function ReservationItemsManager({
                   </div>
                 </Button>
               ))}
+              {availableFilms.length === 0 && !isLoading && (
+                <div className="text-center text-muted-foreground p-4">Žádné filmy nejsou dostupné.</div>
+              )}
+              {isLoading && (
+                <div className="text-center text-muted-foreground p-4">
+                  <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                  <p className="mt-2">Načítání filmů...</p>
+                </div>
+              )}
             </div>
           </DialogContent>
         </Dialog>
 
         <Dialog open={showAccessoryModal} onOpenChange={setShowAccessoryModal}>
           <DialogTrigger asChild>
-            <Button variant="outline" className="bg-transparent">
+            <Button variant="outline" className="bg-transparent" disabled={isLoading}>
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Přidat příslušenství
             </Button>
           </DialogTrigger>
@@ -360,6 +374,15 @@ export function ReservationItemsManager({
                   </div>
                 </Button>
               ))}
+              {availableAccessories.length === 0 && !isLoading && (
+                <div className="text-center text-muted-foreground p-4">Žádné příslušenství není dostupné.</div>
+              )}
+              {isLoading && (
+                <div className="text-center text-muted-foreground p-4">
+                  <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                  <p className="mt-2">Načítání příslušenství...</p>
+                </div>
+              )}
             </div>
           </DialogContent>
         </Dialog>

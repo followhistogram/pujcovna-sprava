@@ -23,6 +23,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils"
 import type { Reservation, Camera } from "@/lib/types"
 import { TimelinePopoverContent } from "./timeline-popover-content"
+import Link from "next/link"
 
 interface CameraTimelineCalendarProps {
   reservations: (Reservation & {
@@ -187,6 +188,11 @@ export function CameraTimelineCalendar({ reservations, cameras }: CameraTimeline
                     </PopoverTrigger>
                     <PopoverContent className="w-64">
                       <TimelinePopoverContent reservation={reservation} />
+                      <div className="mt-3 pt-3 border-t">
+                        <Button asChild size="sm" className="w-full">
+                          <Link href={`/reservations/${reservation.id}`}>Zobrazit detail</Link>
+                        </Button>
+                      </div>
                     </PopoverContent>
                   </Popover>
                 )

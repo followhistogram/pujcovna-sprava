@@ -24,7 +24,7 @@ function EditableReservationDetails({
   dates: { from: Date | undefined; to: Date | undefined }
   setDates: (dates: { from: Date | undefined; to: Date | undefined }) => void
 }) {
-  const [isEditing, setIsEditing] = useState(false)
+  const [isEditing, setIsEditing] = useState(!reservation) // Start in edit mode for new reservations
 
   return (
     <Card>
@@ -33,15 +33,17 @@ function EditableReservationDetails({
           <CardTitle>Termín rezervace</CardTitle>
           <CardDescription>Datum začátku a konce půjčení</CardDescription>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsEditing(!isEditing)}
-          className="h-8 w-8 p-0"
-        >
-          {isEditing ? <Check className="h-4 w-4" /> : <Edit2 className="h-4 w-4" />}
-        </Button>
+        {reservation && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsEditing(!isEditing)}
+            className="h-8 w-8 p-0"
+          >
+            {isEditing ? <Check className="h-4 w-4" /> : <Edit2 className="h-4 w-4" />}
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {isEditing ? (
@@ -135,7 +137,7 @@ function EditableReservationDetails({
 }
 
 function EditableCustomerInfo({ reservation }: { reservation: (Reservation & { items: ReservationItem[] }) | null }) {
-  const [isEditing, setIsEditing] = useState(false)
+  const [isEditing, setIsEditing] = useState(!reservation) // Start in edit mode for new reservations
 
   const copyToClipboard = async (text: string, label: string) => {
     try {
@@ -153,15 +155,17 @@ function EditableCustomerInfo({ reservation }: { reservation: (Reservation & { i
           <CardTitle>Údaje zákazníka</CardTitle>
           <CardDescription>Kontaktní informace a adresa</CardDescription>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsEditing(!isEditing)}
-          className="h-8 w-8 p-0"
-        >
-          {isEditing ? <Check className="h-4 w-4" /> : <Edit2 className="h-4 w-4" />}
-        </Button>
+        {reservation && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsEditing(!isEditing)}
+            className="h-8 w-8 p-0"
+          >
+            {isEditing ? <Check className="h-4 w-4" /> : <Edit2 className="h-4 w-4" />}
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {isEditing ? (
@@ -286,12 +290,17 @@ function EditableCustomerInfo({ reservation }: { reservation: (Reservation & { i
 
 type ReservationFormProps = {
   reservation: (Reservation & { items: ReservationItem[] }) | null
-  availableCameras: Camera[]
-  allFilms: Film[]
-  allAccessories: Accessory[]
+  availableCameras?: Camera[]
+  allFilms?: Film[]
+  allAccessories?: Accessory[]
 }
 
-export function ReservationForm({ reservation, availableCameras, allFilms, allAccessories }: ReservationFormProps) {
+export function ReservationForm({
+  reservation,
+  availableCameras: initialCameras = [],
+  allFilms: initialFilms = [],
+  allAccessories: initialAccessories = [],
+}: ReservationFormProps) {
   const router = useRouter()
   const [state, formAction, isPending] = useActionState(saveReservation, null)
 
@@ -300,6 +309,40 @@ export function ReservationForm({ reservation, availableCameras, allFilms, allAc
     from: reservation ? new Date(reservation.rental_start_date) : undefined,
     to: reservation ? new Date(reservation.rental_end_date) : undefined,
   })
+
+  const [availableCameras, setAvailableCameras] = useState<Camera[]>(initialCameras)
+  const [availableFilms, setAvailableFilms] = useState<Film[]>(initialFilms)
+  const [availableAccessories, setAvailableAccessories] = useState<Accessory[]>(initialAccessories)
+  const [isLoadingItems, setIsLoadingItems] = useState(false)
+
+  useEffect(() => {
+    const isDataPreloaded = initialCameras.length > 0 || initialFilms.length > 0 || initialAccessories.length > 0
+    if (isDataPreloaded) {
+      return
+    }
+
+    const fetchAvailableItems = async () => {
+      setIsLoadingItems(true)
+      try {
+        const response = await fetch("/api/inventory/available")
+        if (!response.ok) {
+          throw new Error("Failed to fetch available items")
+        }
+        const data: { cameras: Camera[]; films: Film[]; accessories: Accessory[] } = await response.json()
+
+        setAvailableCameras(data.cameras || [])
+        setAvailableFilms(data.films || [])
+        setAvailableAccessories(data.accessories || [])
+      } catch (error) {
+        console.error(error)
+        toast.error("Nepodařilo se načíst dostupné položky.")
+      } finally {
+        setIsLoadingItems(false)
+      }
+    }
+
+    fetchAvailableItems()
+  }, [initialCameras.length, initialFilms.length, initialAccessories.length])
 
   const rentalDays =
     dates.from && dates.to ? Math.ceil((dates.to.getTime() - dates.from.getTime()) / (1000 * 60 * 60 * 24)) + 1 : 1
@@ -325,7 +368,6 @@ export function ReservationForm({ reservation, availableCameras, allFilms, allAc
       <input type="hidden" name="rental_start_date" value={dates.from?.toISOString()} />
       <input type="hidden" name="rental_end_date" value={dates.to?.toISOString()} />
 
-      {/* Základní údaje o rezervaci */}
       <div className="grid gap-6 md:grid-cols-2">
         <EditableReservationDetails reservation={reservation} dates={dates} setDates={setDates} />
         <EditableCustomerInfo reservation={reservation} />
@@ -335,9 +377,10 @@ export function ReservationForm({ reservation, availableCameras, allFilms, allAc
         items={items}
         setItems={setItems}
         availableCameras={availableCameras}
-        availableFilms={allFilms}
-        availableAccessories={allAccessories}
+        availableFilms={availableFilms}
+        availableAccessories={availableAccessories}
         rentalDays={rentalDays}
+        isLoading={isLoadingItems}
       />
 
       <Card>
@@ -400,7 +443,7 @@ export function ReservationForm({ reservation, availableCameras, allFilms, allAc
         <Button variant="outline" asChild>
           <Link href="/reservations">Zrušit</Link>
         </Button>
-        <Button type="submit" disabled={isPending}>
+        <Button type="submit" disabled={isPending || isLoadingItems}>
           {isPending ? "Ukládání..." : "Uložit rezervaci"}
         </Button>
       </div>
