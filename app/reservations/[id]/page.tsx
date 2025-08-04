@@ -5,7 +5,7 @@ import { ChevronLeft, AlertCircle } from "lucide-react"
 import { fetchReservationById } from "@/lib/data"
 import { CustomerInfoCard } from "@/components/customer-info-card"
 import { ReservationDetailsCard } from "@/components/reservation-details-card"
-import { ReservationItemsManager } from "@/components/reservation-items-manager"
+import { ReservationItemsDisplay } from "@/components/reservation-items-display" // Nová read-only komponenta
 import { ReservationStatusCard } from "@/components/reservation-status-card"
 import { FinancialSummaryCard } from "@/components/financial-summary-card"
 import { PaymentTransactionsCard } from "@/components/payment-transactions-card"
@@ -34,6 +34,12 @@ interface Reservation {
   [key: string]: any
 }
 
+// Funkce pro validaci UUID
+function isValidUUID(str: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  return uuidRegex.test(str)
+}
+
 export default async function ReservationDetailPage({ params }: ReservationDetailPageProps) {
   const resolvedParams = await params
   const reservationId = resolvedParams.id
@@ -48,20 +54,39 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
   if (!isNew) {
     try {
       console.log(`Fetching reservation with ID: ${reservationId}`)
+      
+      // Validace formátu UUID před voláním API
+      if (!isValidUUID(reservationId)) {
+        console.log(`Invalid UUID format: ${reservationId}`)
+        notFound()
+      }
+
       reservation = await fetchReservationById(reservationId)
       
       if (!reservation) {
         console.log(`Reservation with ID ${reservationId} not found`)
         notFound()
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error fetching reservation:", err)
+      
+      // Specifické handling pro různé typy chyb
+      if (err?.code === '22P02') {
+        // PostgreSQL error pro neplatný UUID
+        console.log(`Invalid UUID format: ${reservationId}`)
+        notFound()
+      }
+      
+      if (err?.message?.includes('404')) {
+        notFound()
+      }
+      
       error = err instanceof Error ? err.message : "Neočekávaná chyba při načítání rezervace"
     }
   }
 
   // Pokud došlo k chybě při načítání, zobrazíme error stránku
-  if (error) {
+  if (error && !isNew) {
     return (
       <main className="container mx-auto py-6 px-4">
         <div className="flex items-center gap-4 mb-6">
@@ -98,8 +123,10 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
               </ul>
             </div>
             <div className="mt-4 flex gap-2">
-              <Button onClick={() => window.location.reload()} variant="outline">
-                Zkusit znovu
+              <Button asChild variant="outline">
+                <Link href={`/reservations/${reservationId}`}>
+                  Zkusit znovu
+                </Link>
               </Button>
               <Button asChild>
                 <Link href="/reservations">
@@ -156,13 +183,9 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
                 <ReservationDetailsCard reservation={reservation} />
               </div>
 
-              {/* Reservation Items */}
-              <ReservationItemsManager
+              {/* Reservation Items - READ-ONLY zobrazení */}
+              <ReservationItemsDisplay
                 items={reservation.items || []}
-                setItems={() => {}} // TODO: Implementovat správnou správu stavu
-                availableCameras={[]}
-                availableFilms={[]}
-                availableAccessories={[]}
                 rentalDays={
                   reservation.rental_start_date && reservation.rental_end_date
                     ? Math.max(
