@@ -17,13 +17,11 @@ import type { CameraWithCategory } from "@/lib/types"
 import { DeleteCameraButton } from "@/components/delete-camera-button"
 import { DuplicateCameraButton } from "@/components/duplicate-camera-button"
 
-export const dynamic = "force-dynamic"
-
 export default async function CamerasPage() {
   const supabase = await createClient()
 
   let cameras: CameraWithCategory[] = []
-  let error: any = null
+  let error: string | null = null
 
   try {
     const { data, error: fetchError } = await supabase
@@ -38,29 +36,30 @@ export default async function CamerasPage() {
 
     if (fetchError) {
       console.error("Error fetching cameras:", fetchError)
-      error = fetchError
+      error = fetchError.message || "Chyba při načítání fotoaparátů"
     } else {
       cameras = (data as CameraWithCategory[]) || []
     }
   } catch (err) {
     console.error("Unexpected error:", err)
-    error = err
+    error = "Neočekávaná chyba při načítání dat"
   }
 
-  const getFirstValidImage = (camera: any) => {
+  const getFirstValidImage = (camera: CameraWithCategory): string | null => {
     try {
       if (camera.images) {
         const images = typeof camera.images === "string" ? JSON.parse(camera.images) : camera.images
         if (Array.isArray(images) && images.length > 0) {
           // Find first valid image (not placeholder, not empty)
           const validImage = images.find(
-            (img) => img && !img.includes("/placeholder.svg") && !img.includes("undefined") && img.trim() !== "",
+            (img: string) =>
+              img && !img.includes("/placeholder.svg") && !img.includes("undefined") && img.trim() !== "",
           )
           return validImage || null
         }
       }
-    } catch (error) {
-      console.error("Error parsing images for camera:", camera.id, error)
+    } catch (parseError) {
+      console.error("Error parsing images for camera:", camera.id, parseError)
     }
     return null
   }
@@ -80,7 +79,7 @@ export default async function CamerasPage() {
             <CardDescription>Nepodařilo se načíst seznam fotoaparátů.</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">{error.message || "Neznámá chyba"}</p>
+            <p className="text-sm text-muted-foreground">{error}</p>
             <Button asChild className="mt-4">
               <Link href="/">Zpět na hlavní stránku</Link>
             </Button>
@@ -153,27 +152,35 @@ export default async function CamerasPage() {
                   return (
                     <TableRow key={camera.id}>
                       <TableCell className="hidden sm:table-cell">
-                        {imageUrl ? (
-                          <Image
-                            alt={camera.name}
-                            className="aspect-square rounded-md object-cover"
-                            height="64"
-                            src={imageUrl || "/placeholder.svg"}
-                            width="64"
-                            onError={(e) => {
-                              // Fallback to placeholder if image fails to load
-                              const target = e.target as HTMLImageElement
-                              target.style.display = "none"
-                              target.parentElement?.querySelector(".fallback-icon")?.classList.remove("hidden")
-                            }}
-                          />
-                        ) : null}
-                        <div
-                          className={`w-16 h-16 bg-muted rounded-md flex items-center justify-center fallback-icon ${
-                            imageUrl ? "hidden" : ""
-                          }`}
-                        >
-                          <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                        <div className="relative w-16 h-16">
+                          {imageUrl ? (
+                            <Image
+                              alt={camera.name}
+                              className="aspect-square rounded-md object-cover"
+                              height={64}
+                              src={imageUrl || "/placeholder.svg"}
+                              width={64}
+                              onError={(e) => {
+                                // Fallback to placeholder if image fails to load
+                                const target = e.target as HTMLImageElement
+                                target.style.display = "none"
+                                const parent = target.parentElement
+                                if (parent) {
+                                  const fallback = parent.querySelector(".fallback-icon") as HTMLElement
+                                  if (fallback) {
+                                    fallback.classList.remove("hidden")
+                                  }
+                                }
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className={`absolute inset-0 bg-muted rounded-md flex items-center justify-center fallback-icon ${
+                              imageUrl ? "hidden" : ""
+                            }`}
+                          >
+                            <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="font-medium">{camera.name}</TableCell>

@@ -5,12 +5,14 @@ export async function GET() {
   const supabase = createClient()
 
   try {
+    // Paralelní načítání dat pro vyšší výkon
     const [camerasRes, filmsRes, accessoriesRes] = await Promise.all([
       supabase.from("cameras").select("*").eq("status", "active"),
       supabase.from("films").select("*").gt("stock", 0),
       supabase.from("accessories").select("*").gt("stock", 0),
     ])
 
+    // Zpracování případných chyb z databáze
     if (camerasRes.error || filmsRes.error || accessoriesRes.error) {
       console.error("Error fetching inventory:", {
         camerasError: camerasRes.error,

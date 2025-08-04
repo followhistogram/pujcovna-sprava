@@ -144,12 +144,7 @@ export default async function ReservationsPage() {
             <Button size="sm" variant="outline">
               Exportovat
             </Button>
-            <Button asChild size="sm" className="h-8 gap-1">
-              <Link href="/reservations/new">
-                <PlusCircle className="h-3.5 w-3.5" />
-                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">Nová rezervace</span>
-              </Link>
-            </Button>
+            
           </div>
         </div>
         <Card className="mt-4">

@@ -24,7 +24,7 @@ function EditableReservationDetails({
   dates: { from: Date | undefined; to: Date | undefined }
   setDates: (dates: { from: Date | undefined; to: Date | undefined }) => void
 }) {
-  const [isEditing, setIsEditing] = useState(!reservation) // Start in edit mode for new reservations
+  const [isEditing, setIsEditing] = useState(!reservation) // Pro nové rezervace začít v editačním módu
 
   return (
     <Card>
@@ -137,7 +137,7 @@ function EditableReservationDetails({
 }
 
 function EditableCustomerInfo({ reservation }: { reservation: (Reservation & { items: ReservationItem[] }) | null }) {
-  const [isEditing, setIsEditing] = useState(!reservation) // Start in edit mode for new reservations
+  const [isEditing, setIsEditing] = useState(!reservation) // Pro nové rezervace začít v editačním módu
 
   const copyToClipboard = async (text: string, label: string) => {
     try {
@@ -290,16 +290,16 @@ function EditableCustomerInfo({ reservation }: { reservation: (Reservation & { i
 
 type ReservationFormProps = {
   reservation: (Reservation & { items: ReservationItem[] }) | null
-  availableCameras?: Camera[]
-  allFilms?: Film[]
-  allAccessories?: Accessory[]
+  availableCameras: Camera[]
+  allFilms: Film[]
+  allAccessories: Accessory[]
 }
 
 export function ReservationForm({
   reservation,
-  availableCameras: initialCameras = [],
-  allFilms: initialFilms = [],
-  allAccessories: initialAccessories = [],
+  availableCameras: initialCameras,
+  allFilms: initialFilms,
+  allAccessories: initialAccessories,
 }: ReservationFormProps) {
   const router = useRouter()
   const [state, formAction, isPending] = useActionState(saveReservation, null)
@@ -316,6 +316,8 @@ export function ReservationForm({
   const [isLoadingItems, setIsLoadingItems] = useState(false)
 
   useEffect(() => {
+    // Pokud jsou data předána přes props (např. pro editaci), použijeme je.
+    // Jinak (pro novou rezervaci) je načteme.
     const isDataPreloaded = initialCameras.length > 0 || initialFilms.length > 0 || initialAccessories.length > 0
     if (isDataPreloaded) {
       return
@@ -326,7 +328,7 @@ export function ReservationForm({
       try {
         const response = await fetch("/api/inventory/available")
         if (!response.ok) {
-          throw new Error("Failed to fetch available items")
+          throw new Error("Nepodařilo se načíst dostupné položky")
         }
         const data: { cameras: Camera[]; films: Film[]; accessories: Accessory[] } = await response.json()
 
@@ -335,7 +337,9 @@ export function ReservationForm({
         setAvailableAccessories(data.accessories || [])
       } catch (error) {
         console.error(error)
-        toast.error("Nepodařilo se načíst dostupné položky.")
+        toast.error("Chyba při načítání položek", {
+          description: error instanceof Error ? error.message : "Zkuste to prosím znovu.",
+        })
       } finally {
         setIsLoadingItems(false)
       }
