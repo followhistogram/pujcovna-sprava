@@ -5,18 +5,23 @@ import { createClient } from "@/lib/supabase/server"
 import { AlertCircle, CheckCircle2 } from "lucide-react"
 
 async function getEmailLogs(reservationId: string) {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("email_logs")
-    .select("*")
-    .eq("reservation_id", reservationId)
-    .order("created_at", { ascending: false })
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from("email_logs")
+      .select("*")
+      .eq("reservation_id", reservationId)
+      .order("created_at", { ascending: false })
 
-  if (error) {
-    console.error("Error fetching email logs:", error)
+    if (error) {
+      console.error("Error fetching email logs:", error)
+      return []
+    }
+    return data || []
+  } catch (error) {
+    console.error("Error creating Supabase client:", error)
     return []
   }
-  return data
 }
 
 export async function EmailLogsCard({ reservationId }: { reservationId: string }) {

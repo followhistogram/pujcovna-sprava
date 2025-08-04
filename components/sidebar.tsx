@@ -2,71 +2,52 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Camera, Calendar, Package, Settings, BarChart3, Home } from "lucide-react"
+import { Camera, Home, Package2, Settings, ShoppingCart, Warehouse } from "lucide-react"
 
-const navigation = [
-  {
-    name: "Dashboard",
-    href: "/",
-    icon: Home,
-  },
-  {
-    name: "Fotoaparáty",
-    href: "/cameras",
-    icon: Camera,
-  },
-  {
-    name: "Rezervace",
-    href: "/reservations",
-    icon: Calendar,
-  },
-  {
-    name: "Sklad",
-    href: "/inventory",
-    icon: Package,
-  },
-  {
-    name: "Reporty",
-    href: "/reports",
-    icon: BarChart3,
-  },
-  {
-    name: "Nastavení",
-    href: "/settings",
-    icon: Settings,
-  },
+import { cn } from "@/lib/utils"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+
+const navLinks = [
+  { href: "/", label: "Dashboard", icon: Home },
+  { href: "/cameras", label: "Fotoaparáty", icon: Camera },
+  { href: "/reservations", label: "Rezervace", icon: ShoppingCart },
+  { href: "/inventory", label: "Sklad", icon: Warehouse },
+  { href: "/settings", label: "Nastavení", icon: Settings },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <div className="pb-12 w-64">
-      <div className="space-y-4 py-4">
-        <div className="px-3 py-2">
-          <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight">Půjčovna</h2>
-          <div className="space-y-1">
-            <ScrollArea className="h-[300px] px-1">
-              {navigation.map((item) => (
-                <Button
-                  key={item.href}
-                  variant={pathname === item.href ? "secondary" : "ghost"}
-                  className={cn("w-full justify-start", pathname === item.href && "bg-muted font-medium")}
-                  asChild
+    <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex">
+      <nav className="flex flex-col items-center gap-4 px-2 sm:py-5">
+        <Link
+          href="#"
+          className="group flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:h-8 md:w-8 md:text-base"
+        >
+          <Package2 className="h-4 w-4 transition-all group-hover:scale-110" />
+          <span className="sr-only">Půjčovna</span>
+        </Link>
+        <TooltipProvider>
+          {navLinks.map(({ href, label, icon: Icon }) => (
+            <Tooltip key={href}>
+              <TooltipTrigger asChild>
+                <Link
+                  href={href}
+                  className={cn(
+                    "flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8",
+                    pathname === href && "bg-accent text-accent-foreground",
+                  )}
                 >
-                  <Link href={item.href}>
-                    <item.icon className="mr-2 h-4 w-4" />
-                    {item.name}
-                  </Link>
-                </Button>
-              ))}
-            </ScrollArea>
-          </div>
-        </div>
-      </div>
-    </div>
+                  <Icon className="h-5 w-5" />
+                  <span className="sr-only">{label}</span>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">{label}</TooltipContent>
+            </Tooltip>
+          ))}
+        </TooltipProvider>
+      </nav>
+    </aside>
   )
 }

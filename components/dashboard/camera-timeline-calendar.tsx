@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import {
   startOfMonth,
   endOfMonth,
@@ -9,7 +9,6 @@ import {
   addMonths,
   subMonths,
   isToday,
-  isSameMonth,
   differenceInDays,
   isWeekend,
   max,
@@ -23,18 +22,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils"
 import type { Reservation, Camera } from "@/lib/types"
 import { TimelinePopoverContent } from "./timeline-popover-content"
-
-interface CameraTimelineCalendarProps {
-  reservations: (Reservation & {
-    items: Array<{
-      item_id: string
-      item_type: "camera" | "film" | "accessory"
-      name: string
-      quantity: number
-    }>
-  })[]
-  cameras: Camera[]
-}
+import { fetchTimelineData } from "@/lib/data"
 
 const statusColors: Record<Reservation["status"], string> = {
   new: "bg-gray-400 border-gray-500",
@@ -46,7 +34,21 @@ const statusColors: Record<Reservation["status"], string> = {
   canceled: "bg-red-500 border-red-600",
 }
 
-export function CameraTimelineCalendar({ reservations, cameras }: CameraTimelineCalendarProps) {
+// Client Component for handling state and interactions
+function TimelineView({
+  initialReservations,
+  initialCameras,
+}: {
+  initialReservations: (Reservation & {
+    items: Array<{
+      item_id: string
+      item_type: "camera" | "film" | "accessory"
+      name: string
+      quantity: number
+    }>
+  })[]
+  initialCameras: Camera[]
+}) {
   const [currentDate, setCurrentDate] = useState(new Date())
 
   const firstDayOfMonth = startOfMonth(currentDate)
@@ -56,25 +58,20 @@ export function CameraTimelineCalendar({ reservations, cameras }: CameraTimeline
     end: lastDayOfMonth,
   })
 
-  // Map reservations to their respective cameras
-  const reservationsByCamera = cameras.map((camera) => ({
-    ...camera,
-    reservations: reservations.filter((res) =>
-      res.items.some((item) => item.item_type === "camera" && item.item_id === camera.id),
-    ),
-  }))
+  const reservationsByCamera = useMemo(
+    () =>
+      initialCameras.map((camera) => ({
+        ...camera,
+        reservations: initialReservations.filter((res) =>
+          res.items.some((item) => item.item_type === "camera" && item.item_id === camera.id),
+        ),
+      })),
+    [initialCameras, initialReservations],
+  )
 
-  const handlePrevMonth = () => {
-    setCurrentDate(subMonths(currentDate, 1))
-  }
-
-  const handleNextMonth = () => {
-    setCurrentDate(addMonths(currentDate, 1))
-  }
-
-  const handleToday = () => {
-    setCurrentDate(new Date())
-  }
+  const handlePrevMonth = () => setCurrentDate((prev) => subMonths(prev, 1))
+  const handleNextMonth = () => setCurrentDate((prev) => addMonths(prev, 1))
+  const handleToday = () => setCurrentDate(new Date())
 
   return (
     <Card>
@@ -152,13 +149,13 @@ export function CameraTimelineCalendar({ reservations, cameras }: CameraTimeline
                 const startDate = new Date(reservation.rental_start_date)
                 const endDate = new Date(reservation.rental_end_date)
 
-                if (!isSameMonth(startDate, currentDate) && !isSameMonth(endDate, currentDate)) {
-                  // Reservation is not in the current month at all
-                  if (startDate < firstDayOfMonth && endDate > lastDayOfMonth) {
-                    // Spans the whole month
-                  } else {
-                    return null
-                  }
+                const reservationIsVisible =
+                  (startDate >= firstDayOfMonth && startDate <= lastDayOfMonth) ||
+                  (endDate >= firstDayOfMonth && endDate <= lastDayOfMonth) ||
+                  (startDate < firstDayOfMonth && endDate > lastDayOfMonth)
+
+                if (!reservationIsVisible) {
+                  return null
                 }
 
                 const visibleStartDate = max([startDate, firstDayOfMonth])
@@ -166,8 +163,7 @@ export function CameraTimelineCalendar({ reservations, cameras }: CameraTimeline
 
                 const startDay = visibleStartDate.getDate()
                 const duration = differenceInDays(visibleEndDate, visibleStartDate) + 1
-
-                const startColumn = startDay + 1 // +1 for camera name column
+                const startColumn = startDay + 1
 
                 return (
                   <Popover key={reservation.id}>
@@ -197,4 +193,10 @@ export function CameraTimelineCalendar({ reservations, cameras }: CameraTimeline
       </CardContent>
     </Card>
   )
+}
+
+// Server Component Wrapper to fetch data
+export default async function CameraTimelineCalendar() {
+  const { reservations, cameras } = await fetchTimelineData()
+  return <TimelineView initialReservations={reservations} initialCameras={cameras} />
 }

@@ -3,10 +3,18 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
-import type { ReservationItem, ReservationStatus } from "@/lib/types"
+import type { ReservationItem } from "@/lib/types"
 import { fakturoidApiRequest } from "@/lib/fakturoid"
 import { zaslatApiRequest } from "@/lib/zaslat"
 import { sendEmail } from "@/lib/email"
+
+const ReservationStatus = {
+  NEW: "new",
+  CONFIRMED: "confirmed",
+  PAID: "paid",
+  COMPLETED: "completed",
+  CANCELLED: "cancelled",
+} as const
 
 const reservationItemSchema = z.object({
   item_id: z.string().uuid(),
@@ -36,8 +44,13 @@ const reservationSchema = z.object({
   shipping_return_url: z.string().url("Neplatný formát URL.").optional().or(z.literal("")),
 })
 
+const UpdateStatusSchema = z.object({
+  id: z.coerce.number(),
+  status: z.nativeEnum(ReservationStatus),
+})
+
 export async function saveReservation(prevState: any, formData: FormData) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   let items: Partial<ReservationItem>[] = []
   try {
@@ -67,12 +80,11 @@ export async function saveReservation(prevState: any, formData: FormData) {
 
   if (!validatedFields.success) {
     console.error(validatedFields.error.flatten().fieldErrors)
-    return { success: false, message: "Formulář obsahuje chyby.", errors: validatedFields.error.flatten().fieldErrors }
+    return { success: false, message: "Formulář obsahuje chyby", errors: validatedFields.error.flatten().fieldErrors }
   }
 
   const { id, items: reservationItems, customer_notes, internal_notes, ...data } = validatedFields.data
 
-  // Calculations are now handled by DB triggers, but we can still prepare the data
   const sales_total = reservationItems
     .filter((item) => item.item_type === "film" || item.item_type === "accessory")
     .reduce((acc, item) => acc + item.unit_price * item.quantity, 0)
@@ -87,7 +99,7 @@ export async function saveReservation(prevState: any, formData: FormData) {
     sales_total,
     customer_notes: customer_notes || null,
     internal_notes: internal_notes || null,
-    status: id ? undefined : "new",
+    status: id ? undefined : ReservationStatus.NEW,
     amount_paid: id ? undefined : 0,
   }
 
@@ -111,7 +123,7 @@ export async function saveReservation(prevState: any, formData: FormData) {
         .single()
       if (error) throw error
       reservationId = newReservation.id
-      newReservationDataForEmail = newReservation // Store for email
+      newReservationDataForEmail = newReservation
     }
 
     if (reservationId) {
@@ -120,16 +132,11 @@ export async function saveReservation(prevState: any, formData: FormData) {
       const { error: insertError } = await supabase.from("reservation_items").insert(itemsToInsert)
       if (insertError) throw insertError
 
-      // If a new reservation was created, send confirmation email
       if (newReservationDataForEmail && newReservationDataForEmail.customer_email) {
-        // We need to combine reservation data with item data for the email
         const emailData = {
           ...newReservationDataForEmail,
           items: reservationItems,
         }
-
-        // Fire and forget - we don't want to block the UI response
-        // if the email fails to send. Errors are logged in sendEmail function.
         sendEmail({
           templateName: "reservation_confirmation",
           recipient: newReservationDataForEmail.customer_email,
@@ -147,46 +154,39 @@ export async function saveReservation(prevState: any, formData: FormData) {
   }
 }
 
-export async function updateReservationStatus(reservationId: string, newStatus: ReservationStatus) {
+export async function updateReservationStatus(prevState: any, formData: FormData) {
   const supabase = createClient()
 
-  try {
-    const { error } = await supabase
-      .from("reservations")
-      .update({
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", reservationId)
+  const validatedFields = UpdateStatusSchema.safeParse({
+    id: formData.get("id"),
+    status: formData.get("status"),
+  })
 
-    if (error) {
-      console.error("Status update error:", error)
-      throw error
-    }
-
-    revalidatePath("/reservations")
-    revalidatePath(`/reservations/${reservationId}`)
-
-    const statusLabels = {
-      new: "Nová",
-      confirmed: "Potvrzená",
-      ready_for_dispatch: "K expedici",
-      active: "Aktivní",
-      returned: "Vrácena",
-      completed: "Dokončena",
-      canceled: "Stornována",
-    }
-
+  if (!validatedFields.success) {
     return {
-      success: true,
-      message: `Stav rezervace byl změněn na "${statusLabels[newStatus]}".`,
+      message: "Neplatná data pro aktualizaci stavu.",
+      error: true,
     }
-  } catch (error: any) {
-    console.error("Update status error:", error)
+  }
+
+  const { id, status } = validatedFields.data
+
+  const { error } = await supabase.from("reservations").update({ status: status }).eq("id", id)
+
+  if (error) {
+    console.error("Error updating reservation status:", error)
     return {
-      success: false,
-      message: `Nepodařilo se změnit stav rezervace: ${error.message}`,
+      message: "Nepodařilo se aktualizovat stav rezervace.",
+      error: true,
     }
+  }
+
+  revalidatePath("/reservations")
+  revalidatePath(`/reservations/${id}`)
+
+  return {
+    message: `Stav rezervace byl úspěšně aktualizován na "${status}".`,
+    error: false,
   }
 }
 
@@ -195,7 +195,7 @@ export async function createInvoice(reservationId: string) {
     return { success: false, message: "Chybí konfigurace pro Fakturoid API (OAuth)." }
   }
 
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data: reservation, error: reservationError } = await supabase
     .from("reservations")
@@ -276,7 +276,7 @@ export async function orderShipping(reservationId: string) {
     return { success: false, message: "Chybí konfigurace pro Zaslat.cz API." }
   }
 
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data: reservation, error: reservationError } = await supabase
     .from("reservations")
@@ -371,7 +371,7 @@ export async function orderShipping(reservationId: string) {
 }
 
 export async function addPaymentTransaction(prevState: any, formData: FormData) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   try {
     const reservationId = formData.get("reservationId") as string
@@ -425,7 +425,7 @@ export async function addPaymentTransaction(prevState: any, formData: FormData) 
 }
 
 export async function deletePaymentTransaction(transactionId: string, reservationId: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   try {
     const { error } = await supabase.from("payment_transactions").delete().eq("id", transactionId)
@@ -454,7 +454,7 @@ export async function deletePaymentTransaction(transactionId: string, reservatio
 
 export async function getPaymentTransactions(reservationId: string) {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
 
     const { data, error } = await supabase
       .from("payment_transactions")
@@ -475,7 +475,7 @@ export async function getPaymentTransactions(reservationId: string) {
 }
 
 export async function getReservation(reservationId: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   try {
     const { data: reservation, error: reservationError } = await supabase

@@ -1,53 +1,72 @@
 import { createClient } from "@/lib/supabase/server"
+import { startOfMonth, endOfMonth, format, addDays } from "date-fns"
+import type { Camera } from "./types"
 
-export async function getRevenueData() {
+export async function fetchDashboardStats() {
   const supabase = await createClient()
+  const today = new Date()
+  const monthStart = format(startOfMonth(today), "yyyy-MM-dd")
+  const monthEnd = format(endOfMonth(today), "yyyy-MM-dd")
 
-  try {
-    const { data } = await supabase
+  const [
+    { count: totalCameras, error: camerasError },
+    { count: activeReservations, error: reservationsError },
+    { data: revenueData, error: revenueError },
+    { count: lowStockItems, error: stockError },
+  ] = await Promise.all([
+    supabase.from("cameras").select("*", { count: "exact", head: true }),
+    supabase.from("reservations").select("*", { count: "exact", head: true }).eq("status", "active"),
+    supabase
       .from("reservations")
-      .select("total_price, created_at")
+      .select("total_price")
       .eq("status", "completed")
-      .order("created_at", { ascending: true })
+      .gte("rental_end_date", monthStart)
+      .lte("rental_end_date", monthEnd),
+    supabase.from("inventory").select("*", { count: "exact", head: true }).lte("stock", 5),
+  ])
 
-    return data || []
-  } catch (error) {
-    console.error("Error fetching revenue data:", error)
-    return []
+  if (camerasError || reservationsError || revenueError || stockError) {
+    console.error("Error fetching dashboard stats:", {
+      camerasError,
+      reservationsError,
+      revenueError,
+      stockError,
+    })
+  }
+
+  const monthlyRevenue = revenueData?.reduce((sum, item) => sum + item.total_price, 0) || 0
+
+  return {
+    totalCameras: totalCameras ?? 0,
+    activeReservations: activeReservations ?? 0,
+    monthlyRevenue,
+    lowStockItems: lowStockItems ?? 0,
   }
 }
 
-export async function getUtilizationData() {
+export async function fetchTimelineData() {
   const supabase = await createClient()
+  const viewStartDate = startOfMonth(new Date())
+  const viewEndDate = endOfMonth(addDays(new Date(), 60))
 
-  try {
-    const { data } = await supabase
-      .from("reservations")
-      .select("rental_start_date, rental_end_date, status")
-      .in("status", ["confirmed", "active", "completed"])
-      .order("rental_start_date", { ascending: true })
+  const { data: reservations, error: reservationsError } = await supabase
+    .from("reservations")
+    .select("*, items:reservation_items(*)")
+    .in("status", ["confirmed", "ready_for_dispatch", "active", "returned"])
+    .not("rental_start_date", "is", null)
+    .not("rental_end_date", "is", null)
+    .gte("rental_start_date", format(viewStartDate, "yyyy-MM-dd"))
+    .lte("rental_start_date", format(viewEndDate, "yyyy-MM-dd"))
 
-    return data || []
-  } catch (error) {
-    console.error("Error fetching utilization data:", error)
-    return []
+  const { data: cameras, error: camerasError } = await supabase.from("cameras").select("id, name").order("name")
+
+  if (reservationsError || camerasError) {
+    console.error("Error fetching timeline data:", { reservationsError, camerasError })
+    return { reservations: [], cameras: [] }
+  }
+
+  return {
+    reservations: (reservations as any[]) || [],
+    cameras: (cameras as Camera[]) || [],
   }
 }
-
-// Mock data pro reports stránku - v produkci by se načítala z databáze
-export const revenueData = [
-  { name: "Leden", revenue: 45000 },
-  { name: "Únor", revenue: 52000 },
-  { name: "Březen", revenue: 48000 },
-  { name: "Duben", revenue: 61000 },
-  { name: "Květen", revenue: 55000 },
-  { name: "Červen", revenue: 67000 },
-]
-
-export const utilizationData = [
-  { name: "Polaroid SX-70", value: 35 },
-  { name: "Instax Mini 11", value: 28 },
-  { name: "Instax Wide 300", value: 22 },
-  { name: "Polaroid Now", value: 18 },
-  { name: "Instax Square SQ1", value: 15 },
-]

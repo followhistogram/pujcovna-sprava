@@ -25,28 +25,22 @@ export async function middleware(request: NextRequest) {
     },
   )
 
-  // IMPORTANT: Avoid writing any logic between createServerClient and
-  // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-  // issues with users being randomly logged out.
+  // Refresh session if expired - required for Server Components
+  await supabase.auth.getUser()
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user && !request.nextUrl.pathname.startsWith("/login") && !request.nextUrl.pathname.startsWith("/auth")) {
-    // no user, potentially respond by redirecting the user to the login page
-    const url = request.nextUrl.clone()
-    url.pathname = "/login"
-    return NextResponse.redirect(url)
+  // If user is not signed in and the current path is not /login redirect the user to /login
+  if (!user && request.nextUrl.pathname !== "/login") {
+    return NextResponse.redirect(new URL("/login", request.url))
   }
 
-  // IMPORTANT: You *must* return the supabaseResponse object as it is. If you're
-  // creating a new response object with NextResponse.next() make sure to:
-  // 1. Pass the request in it, like so:
-  //    const myNewResponse = NextResponse.next({ request })
-  // 2. Copy over the cookies, like so:
-  //    myNewResponse.cookies.setAll(supabaseResponse.cookies.getAll())
-  // 3. Change the myNewResponse object instead of the supabaseResponse object
+  // If user is signed in and the current path is /login redirect the user to /
+  if (user && request.nextUrl.pathname === "/login") {
+    return NextResponse.redirect(new URL("/", request.url))
+  }
 
   return supabaseResponse
 }
