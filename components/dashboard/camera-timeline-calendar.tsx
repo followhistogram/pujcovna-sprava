@@ -59,9 +59,9 @@ export function CameraTimelineCalendar({ reservations, cameras }: CameraTimeline
   // Map reservations to their respective cameras
   const reservationsByCamera = cameras.map((camera) => ({
     ...camera,
-    reservations: reservations.filter((res) =>
-      res.items.some((item) => item.item_type === "camera" && item.item_id === camera.id),
-    ),
+    reservations: reservations
+      .filter((res) => res.status !== "canceled")
+      .filter((res) => res.items.some((item) => item.item_type === "camera" && item.item_id === camera.id)),
   }))
 
   const handlePrevMonth = () => {

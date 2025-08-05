@@ -1,44 +1,83 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
-/**
- * GET /api/inventory/available
- * Vrací dostupné fotoaparáty, filmy a příslušenství.
- */
-export async function GET() {
-  // createClient je synchronní, žádné await!
-  const supabase = createClient()
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const startDate = searchParams.get("startDate")
+  const endDate = searchParams.get("endDate")
+  const excludeReservationId = searchParams.get("excludeReservationId")
 
   try {
-    // Paralelní dotazy pro vyšší výkon
-    const [camerasRes, filmsRes, accessoriesRes] = await Promise.all([
-      supabase.from("cameras").select("*").eq("status", "active"),
-      supabase.from("films").select("*").gt("stock", 0),
-      supabase.from("accessories").select("*").gt("stock", 0),
-    ])
+    const supabase = await createClient()
 
-    // Ošetření chyb z databáze
-    if (camerasRes.error || filmsRes.error || accessoriesRes.error) {
-      console.error("Error fetching inventory:", {
-        camerasError: camerasRes.error,
-        filmsError: filmsRes.error,
-        accessoriesError: accessoriesRes.error,
-      })
-      throw new Error("Failed to fetch inventory from database.")
+    let bookedCameraIds: string[] = []
+
+    if (startDate && endDate) {
+      // Find reservations that overlap with the given date range
+      // An overlap occurs if (StartA <= EndB) and (EndA >= StartB)
+      let query = supabase
+        .from("reservations")
+        .select("id")
+        .lte("rental_start_date", endDate)
+        .gte("rental_end_date", startDate)
+        .neq("status", "cancelled") // Ignore cancelled reservations
+
+      if (excludeReservationId) {
+        query = query.neq("id", excludeReservationId)
+      }
+
+      const { data: overlappingReservations, error: reservationError } = await query
+
+      if (reservationError) throw reservationError
+
+      if (overlappingReservations && overlappingReservations.length > 0) {
+        const reservationIds = overlappingReservations.map((r) => r.id)
+
+        // Find camera items in those reservations
+        const { data: bookedItems, error: itemsError } = await supabase
+          .from("reservation_items")
+          .select("item_id")
+          .in("reservation_id", reservationIds)
+          .eq("item_type", "camera")
+          .not("item_id", "is", null)
+
+        if (itemsError) throw itemsError
+
+        if (bookedItems) {
+          bookedCameraIds = bookedItems.map((item) => item.item_id!)
+        }
+      }
     }
 
-    // Úspěšná odpověď
+    // Fetch available cameras
+    let cameraQuery = supabase.from("cameras").select("*, pricing_tiers(*)").eq("status", "active").order("name")
+
+    if (bookedCameraIds.length > 0) {
+      cameraQuery = cameraQuery.not("id", "in", `(${bookedCameraIds.join(",")})`)
+    }
+
+    const { data: cameras, error: camerasError } = await cameraQuery
+    if (camerasError) throw camerasError
+
+    // Fetch films and accessories (for now, availability is just based on stock)
+    const { data: films, error: filmsError } = await supabase.from("films").select(`*`).gt("stock", 0).order("name")
+    if (filmsError) throw filmsError
+
+    const { data: accessories, error: accessoriesError } = await supabase
+      .from("accessories")
+      .select(`*`)
+      .gt("stock", 0)
+      .order("name")
+    if (accessoriesError) throw accessoriesError
+
     return NextResponse.json({
-      cameras: camerasRes.data ?? [],
-      films: filmsRes.data ?? [],
-      accessories: accessoriesRes.data ?? [],
+      cameras: cameras || [],
+      films: films || [],
+      accessories: accessories || [],
     })
   } catch (error) {
-    console.error("Error in /api/inventory/available:", error)
-    const message = error instanceof Error ? error.message : "Unknown error"
-    return NextResponse.json(
-      { error: "Failed to fetch available inventory", details: message },
-      { status: 500 },
-    )
+    console.error("Error fetching available inventory:", error)
+    const errorMessage = error instanceof Error ? error.message : "Internal server error"
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }

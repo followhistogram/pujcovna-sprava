@@ -11,6 +11,10 @@ interface ReservationItem {
   total_price: number
   description?: string
   inventory_item_id?: string
+  item_id?: string
+  item_type?: string
+  unit_price?: number
+  deposit?: number
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -35,13 +39,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (items.length > 0) {
       const itemsToInsert = items.map((item) => ({
         reservation_id: reservationId,
-        inventory_item_id: item.inventory_item_id,
-        type: item.type,
+        item_id: item.item_id,
+        item_type: item.item_type,
         name: item.name,
         quantity: item.quantity,
-        price_per_day: item.price_per_day,
-        total_price: item.total_price,
-        description: item.description,
+        unit_price: item.unit_price,
+        deposit: item.deposit || 0,
       }))
 
       const { error: insertError } = await supabase.from("reservation_items").insert(itemsToInsert)
@@ -53,7 +56,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Přepočítáme celkovou cenu rezervace
-    const totalPrice = items.reduce((sum, item) => sum + item.total_price, 0)
+    const totalPrice = items.reduce((sum, item) => sum + (item.unit_price || 0) * (item.quantity || 0), 0)
 
     const { error: updateReservationError } = await supabase
       .from("reservations")

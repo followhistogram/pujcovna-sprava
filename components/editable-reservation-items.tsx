@@ -15,6 +15,7 @@ import type {
   Camera as TCamera,
   Film as TFilm,
   Accessory as TAccessory,
+  PriceTier,
 } from "@/lib/types"
 
 interface EditableReservationItemsProps {
@@ -23,12 +24,16 @@ interface EditableReservationItemsProps {
   rentalDays: number
 }
 
+type EditableReservationItem = TReservationItem & {
+  pricing_tiers?: PriceTier[] | null
+}
+
 export function EditableReservationItems({
   reservationId,
   items: initialItems,
   rentalDays,
 }: EditableReservationItemsProps) {
-  const [items, setItems] = useState<TReservationItem[]>(initialItems)
+  const [items, setItems] = useState<EditableReservationItem[]>(initialItems)
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -43,10 +48,26 @@ export function EditableReservationItems({
     setItems(initialItems)
   }, [initialItems])
 
+  const getCameraPrice = (camera: { pricing_tiers?: PriceTier[] | null }, days: number): number => {
+    const tiers = camera.pricing_tiers
+    if (!tiers || tiers.length === 0) {
+      return 0
+    }
+
+    const applicableTier = [...tiers].sort((a, b) => b.min_days - a.min_days).find((tier) => days >= tier.min_days)
+
+    if (applicableTier) {
+      return (applicableTier.price_per_day || 0) * days
+    }
+
+    const lowestTier = [...tiers].sort((a, b) => a.min_days - b.min_days)[0]
+    return (lowestTier?.price_per_day || 0) * days
+  }
+
   useEffect(() => {
     if (!isEditing) return
 
-    const fetchAvailableItems = async () => {
+    const fetchAndPrepareItems = async () => {
       setIsLoadingItems(true)
       try {
         const response = await fetch("/api/inventory/available")
@@ -58,6 +79,22 @@ export function EditableReservationItems({
         setAvailableCameras(data.cameras || [])
         setAvailableFilms(data.films || [])
         setAvailableAccessories(data.accessories || [])
+
+        setItems((currentItems) =>
+          currentItems.map((item) => {
+            if (item.item_type === "camera") {
+              const cameraData = (data.cameras || []).find((c) => c.id === item.item_id)
+              if (cameraData) {
+                return {
+                  ...item,
+                  pricing_tiers: cameraData.pricing_tiers,
+                  unit_price: getCameraPrice(cameraData, rentalDays),
+                }
+              }
+            }
+            return item
+          }),
+        )
       } catch (error) {
         console.error("Error fetching available items:", error)
         toast.error("Nepodařilo se načíst dostupné položky.")
@@ -66,8 +103,21 @@ export function EditableReservationItems({
       }
     }
 
-    fetchAvailableItems()
+    fetchAndPrepareItems()
   }, [isEditing])
+
+  useEffect(() => {
+    if (isEditing) {
+      setItems((currentItems) =>
+        currentItems.map((item) => {
+          if (item.item_type === "camera" && item.pricing_tiers) {
+            return { ...item, unit_price: getCameraPrice(item, rentalDays) }
+          }
+          return item
+        }),
+      )
+    }
+  }, [rentalDays, isEditing])
 
   const getItemIcon = (type: string) => {
     switch (type) {
@@ -128,16 +178,8 @@ export function EditableReservationItems({
     return stats
   }
 
-  const getCameraPrice = (camera: TCamera, days: number): number => {
-    if (!camera.pricing_tiers || camera.pricing_tiers.length === 0) return 0
-    const sortedTiers = [...camera.pricing_tiers].sort((a, b) => b.min_days - a.min_days)
-    const applicableTier = sortedTiers.find((tier) => days >= tier.min_days)
-    const dailyPrice = applicableTier ? applicableTier.price_per_day : 0
-    return dailyPrice * days
-  }
-
   const addItem = (itemToAdd: TCamera | TFilm | TAccessory, type: "camera" | "film" | "accessory") => {
-    let newItem: TReservationItem
+    let newItem: EditableReservationItem
 
     if (type === "camera") {
       const camera = itemToAdd as TCamera
@@ -150,6 +192,7 @@ export function EditableReservationItems({
         quantity: 1,
         unit_price: getCameraPrice(camera, rentalDays),
         deposit: camera.deposit,
+        pricing_tiers: camera.pricing_tiers,
       }
     } else if (type === "film") {
       const film = itemToAdd as TFilm
@@ -311,7 +354,7 @@ export function EditableReservationItems({
                                 <span className="font-medium">{item.name}</span>
                                 <Badge variant="outline">
                                   {selectedItemType === "camera"
-                                    ? `${getCameraPrice(item as TCamera, rentalDays)} Kč / ${rentalDays} d.`
+                                    ? `${getCameraPrice(item as TCamera, rentalDays)} Kč`
                                     : `${(item as TFilm | TAccessory).price} Kč`}
                                 </Badge>
                               </div>

@@ -17,6 +17,18 @@ import { toast } from "sonner"
 import { MultiSelect } from "@/components/ui/multi-select"
 import ImageUrlManager from "./image-url-manager"
 
+// Price calculation function
+function calculatePrice(days: number, pricingTiers: { min_days: number; price_per_day: number }[]) {
+  if (!pricingTiers.length || days <= 0) return 0
+
+  // Find the highest min_days that is ≤ the given number of days
+  const applicableTier = pricingTiers
+    .filter((tier) => tier.min_days <= days)
+    .reduce((best, current) => (current.min_days > best.min_days ? current : best))
+
+  return applicableTier.price_per_day * days
+}
+
 type CameraFormProps = {
   camera: (Partial<Camera> & { compatible_films?: Film[] }) | null
   categories: Category[]
@@ -143,6 +155,29 @@ export default function CameraForm({ camera, categories, allFilms }: CameraFormP
               <CardDescription>Ceny jsou vkládány včetně 21% DPH.</CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="mb-4">
+                <Label htmlFor="days-preview">Náhled ceny pro počet dní:</Label>
+                <div className="flex items-center gap-2 mt-2">
+                  <Input
+                    id="days-preview"
+                    type="number"
+                    min="1"
+                    placeholder="Zadejte počet dní"
+                    className="w-32"
+                    onChange={(e) => {
+                      const days = Number.parseInt(e.target.value) || 0
+                      const price = calculatePrice(days, pricingTiers)
+                      const previewElement = document.getElementById("price-preview")
+                      if (previewElement) {
+                        previewElement.textContent = days > 0 ? `${price} Kč` : ""
+                      }
+                    }}
+                  />
+                  <span className="text-sm text-muted-foreground">dní =</span>
+                  <span id="price-preview" className="font-medium text-lg min-w-[60px]"></span>
+                </div>
+              </div>
+
               <Table>
                 <TableHeader>
                   <TableRow>

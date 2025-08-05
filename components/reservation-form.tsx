@@ -54,7 +54,7 @@ function EditableReservationDetails({
                 id="rental_start_date"
                 name="rental_start_date"
                 type="date"
-                defaultValue={reservation ? new Date(reservation.rental_start_date).toISOString().split("T")[0] : ""}
+                defaultValue={dates.from ? format(dates.from, "yyyy-MM-dd") : ""}
                 onChange={(e) => setDates({ ...dates, from: e.target.value ? new Date(e.target.value) : undefined })}
                 required
               />
@@ -65,7 +65,7 @@ function EditableReservationDetails({
                 id="rental_end_date"
                 name="rental_end_date"
                 type="date"
-                defaultValue={reservation ? new Date(reservation.rental_end_date).toISOString().split("T")[0] : ""}
+                defaultValue={dates.to ? format(dates.to, "yyyy-MM-dd") : ""}
                 onChange={(e) => setDates({ ...dates, to: e.target.value ? new Date(e.target.value) : undefined })}
                 required
               />
@@ -316,28 +316,57 @@ export function ReservationForm({
   const [isLoadingItems, setIsLoadingItems] = useState(false)
 
   useEffect(() => {
-    // Pokud jsou data předána přes props (např. pro editaci), použijeme je.
-    // Jinak (pro novou rezervaci) je načteme.
-    const isDataPreloaded = initialCameras.length > 0 || initialFilms.length > 0 || initialAccessories.length > 0
-    if (isDataPreloaded) {
-      return
-    }
-
     const fetchAvailableItems = async () => {
+      if (!dates.from || !dates.to) {
+        setAvailableCameras([])
+        setAvailableFilms([])
+        setAvailableAccessories([])
+        return
+      }
+
+      if (dates.from > dates.to) {
+        toast.error("Datum 'od' nemůže být po datu 'do'.")
+        return
+      }
+
       setIsLoadingItems(true)
       try {
-        const response = await fetch("/api/inventory/available")
+        const params = new URLSearchParams({
+          startDate: dates.from.toISOString(),
+          endDate: dates.to.toISOString(),
+        })
+        if (reservation?.id) {
+          params.append("excludeReservationId", reservation.id)
+        }
+
+        const response = await fetch(`/api/inventory/available?${params.toString()}`)
         if (!response.ok) {
-          throw new Error("Nepodařilo se načíst dostupné položky")
+          throw new Error("Nepodařilo se načíst dostupné položky pro vybraný termín.")
         }
         const data: { cameras: Camera[]; films: Film[]; accessories: Accessory[] } = await response.json()
+
+        const availableCameraIds = new Set((data.cameras || []).map((c) => c.id))
+        const previouslySelectedCameras = items.filter((item) => item.item_type === "camera")
+        const unavailableCameras = previouslySelectedCameras.filter((item) => !availableCameraIds.has(item.item_id!))
+
+        if (unavailableCameras.length > 0) {
+          toast.warning("Některé vybrané fotoaparáty nejsou ve zvoleném termínu dostupné a byly odebrány.", {
+            description: unavailableCameras.map((c) => c.name).join(", "),
+          })
+          setItems((currentItems) =>
+            currentItems.filter((item) => {
+              if (item.item_type !== "camera") return true
+              return availableCameraIds.has(item.item_id!)
+            }),
+          )
+        }
 
         setAvailableCameras(data.cameras || [])
         setAvailableFilms(data.films || [])
         setAvailableAccessories(data.accessories || [])
       } catch (error) {
         console.error(error)
-        toast.error("Chyba při načítání položek", {
+        toast.error("Chyba při kontrole dostupnosti", {
           description: error instanceof Error ? error.message : "Zkuste to prosím znovu.",
         })
       } finally {
@@ -346,7 +375,7 @@ export function ReservationForm({
     }
 
     fetchAvailableItems()
-  }, [initialCameras.length, initialFilms.length, initialAccessories.length])
+  }, [dates.from, dates.to, reservation?.id])
 
   const rentalDays =
     dates.from && dates.to ? Math.ceil((dates.to.getTime() - dates.from.getTime()) / (1000 * 60 * 60 * 24)) + 1 : 1
